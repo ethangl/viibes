@@ -1,9 +1,9 @@
 {
-  "name": "rooms",
+  "name": "viibes",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "portless rooms vite",
+    "dev": "vite --port ${PORT:-5173} --strictPort",
     "dev:convex": "convex dev",
     "build": "vite build",
     "preview": "portless rooms vite preview",
