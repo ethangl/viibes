@@ -4,14 +4,11 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 
 import type { SpotifyTrack } from "@/features/spotify-client/types";
+import { getConvexErrorMessage } from "@/lib/convex-error";
 import type { RoomId, RoomQueueItemId } from "../client/room-types";
 
 function reportRoomError(error: unknown) {
-  toast.error(
-    error instanceof Error && error.message
-      ? error.message
-      : "Something went wrong.",
-  );
+  toast.error(getConvexErrorMessage(error, "Something went wrong."));
 }
 
 function getRequiredRoomId(roomId: RoomId | null | undefined) {

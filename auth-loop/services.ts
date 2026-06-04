@@ -46,6 +46,34 @@ export class SpotifyHttp extends Context.Tag("SpotifyHttp")<
 
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
+/**
+ * Per-request log line, ported from ironman's `spotify/client.ts`. AGENTS.md
+ * relies on this to spot 429s in ordinary usage ("if we are seeing Spotify
+ * 429s ... the query design is wrong"), so the boundary must surface
+ * status + retry-after. Skipped under test to keep output quiet.
+ */
+function logSpotifyRequest(details: {
+  path: string;
+  method: string;
+  status: number;
+  durationMs: number;
+  retryAfterSeconds: number | null;
+}) {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  const parts = [
+    `[spotify] ${details.method} ${details.path}`,
+    `status=${details.status}`,
+    `duration=${details.durationMs}ms`,
+  ];
+  if (details.retryAfterSeconds) {
+    parts.push(`retry_after=${details.retryAfterSeconds}s`);
+  }
+  console.info(parts.join(" "));
+}
+
 /** Real implementation over `fetch`. (Untested here — that's the point: the
  *  loop's behavior is tested against a fake; this just adapts the boundary.) */
 export const SpotifyHttpLive = Layer.succeed(
@@ -54,6 +82,7 @@ export const SpotifyHttpLive = Layer.succeed(
     send: ({ path, method, token, body }) =>
       Effect.tryPromise({
         try: async () => {
+          const startedAt = Date.now();
           const res = await fetch(`${SPOTIFY_API}${path}`, {
             method,
             headers: {
@@ -62,10 +91,19 @@ export const SpotifyHttpLive = Layer.succeed(
             },
             ...(body === undefined ? {} : { body }),
           });
+          const retryAfterSeconds =
+            Number(res.headers.get("retry-after")) || null;
+          logSpotifyRequest({
+            path,
+            method,
+            status: res.status,
+            durationMs: Date.now() - startedAt,
+            retryAfterSeconds,
+          });
           return {
             status: res.status,
             ok: res.ok,
-            retryAfterSeconds: Number(res.headers.get("retry-after")) || null,
+            retryAfterSeconds,
             body: await res.text(),
           } satisfies SpotifyResponse;
         },

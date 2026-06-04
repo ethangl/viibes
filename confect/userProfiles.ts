@@ -68,16 +68,22 @@ export async function upsertAppUserProfile(
     .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
     .unique();
 
-  const payload = {
-    userId: profile.userId,
-    name: profile.name,
-    ...(profile.image !== undefined ? { image: profile.image } : {}),
-  };
-
   if (existing) {
-    await ctx.db.patch(existing._id, payload);
+    // Patch includes `image` even when undefined so a sync that no longer has
+    // an image clears a previously stored avatar (Convex treats `undefined` as
+    // "remove field") rather than leaving stale data on the profile.
+    await ctx.db.patch(existing._id, {
+      userId: profile.userId,
+      name: profile.name,
+      image: profile.image,
+    });
     return existing._id;
   }
 
-  return await ctx.db.insert("users", payload);
+  // Insert omits an absent image so the field is absent (not stored as null).
+  return await ctx.db.insert("users", {
+    userId: profile.userId,
+    name: profile.name,
+    ...(profile.image !== undefined ? { image: profile.image } : {}),
+  });
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { getConvexErrorMessage } from "@/lib/convex-error";
 import type { RoomId } from "../rooms/client/room-types";
 
 export function ChatForm({ roomId }: { roomId: RoomId }) {
@@ -25,11 +26,7 @@ export function ChatForm({ roomId }: { roomId: RoomId }) {
       await sendChatMessage({ roomId, body: trimmedBody });
       setBody("");
     } catch (error) {
-      toast.error(
-        error instanceof Error && error.message
-          ? error.message
-          : "Message could not be sent.",
-      );
+      toast.error(getConvexErrorMessage(error, "Message could not be sent."));
     } finally {
       setSending(false);
     }

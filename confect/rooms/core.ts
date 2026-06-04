@@ -358,12 +358,15 @@ export const getUsersByUserId = (userIds: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const uniqueUserIds = [...new Set(userIds)];
-    const users = yield* Effect.forEach(uniqueUserIds, (userId) =>
-      reader
-        .table("users")
-        .index("by_userId", (q) => q.eq("userId", userId))
-        .first()
-        .pipe(Effect.map(Option.getOrNull)),
+    const users = yield* Effect.forEach(
+      uniqueUserIds,
+      (userId) =>
+        reader
+          .table("users")
+          .index("by_userId", (q) => q.eq("userId", userId))
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+      { concurrency: "unbounded" },
     );
     return new Map(uniqueUserIds.map((userId, i) => [userId, users[i] ?? null]));
   }).pipe(Effect.orDie);
@@ -402,24 +405,35 @@ export const listRooms = (ctx: RoomCtx) =>
     const auth = yield* requireRoomAuth(ctx);
     return yield* Effect.gen(function* () {
       const reader = yield* DatabaseReader;
-      const publicRooms = yield* reader
-        .table("rooms")
-        .index("by_visibility_and_archivedAt", (q) =>
-          q.eq("visibility", "public").eq("archivedAt", null),
-        )
-        .collect();
-      const roleMemberships = yield* reader
-        .table("roomMemberships")
-        .index("by_userTokenIdentifier_and_active", (q) =>
-          q.eq("userTokenIdentifier", auth.tokenIdentifier).eq("active", true),
-        )
-        .collect();
-      const follows = yield* reader
-        .table("roomFollows")
-        .index("by_userId", (q) => q.eq("userId", auth.userId))
-        .collect();
-      const roleRooms = yield* Effect.forEach(roleMemberships, (m) =>
-        roomDocById(m.roomId),
+      // Independent reads — run concurrently (parity with the pre-migration
+      // `Promise.all`).
+      const [publicRooms, roleMemberships, follows] = yield* Effect.all(
+        [
+          reader
+            .table("rooms")
+            .index("by_visibility_and_archivedAt", (q) =>
+              q.eq("visibility", "public").eq("archivedAt", null),
+            )
+            .collect(),
+          reader
+            .table("roomMemberships")
+            .index("by_userTokenIdentifier_and_active", (q) =>
+              q
+                .eq("userTokenIdentifier", auth.tokenIdentifier)
+                .eq("active", true),
+            )
+            .collect(),
+          reader
+            .table("roomFollows")
+            .index("by_userId", (q) => q.eq("userId", auth.userId))
+            .collect(),
+        ],
+        { concurrency: "unbounded" },
+      );
+      const roleRooms = yield* Effect.forEach(
+        roleMemberships,
+        (m) => roomDocById(m.roomId),
+        { concurrency: "unbounded" },
       );
 
       const roomsById = new Map<Id<"rooms">, RoomDoc>();
@@ -495,10 +509,18 @@ export const getRoomDetails = (
     const { auth, room, roleMembership } = context.value;
 
     const now = yield* Clock.currentTimeMillis;
-    const queueItems = yield* getActiveQueueItems(room._id);
-    const playbackState = yield* getPlaybackStateDoc(room._id);
-    const activeRoleMemberships = yield* getActiveRoomMemberships(room._id);
-    const follow = yield* getRoomFollow(room._id, auth.userId);
+    // Independent reads — run concurrently (parity with the pre-migration
+    // `Promise.all`; serializing them adds round-trips on this hot query).
+    const [queueItems, playbackState, activeRoleMemberships, follow] =
+      yield* Effect.all(
+        [
+          getActiveQueueItems(room._id),
+          getPlaybackStateDoc(room._id),
+          getActiveRoomMemberships(room._id),
+          getRoomFollow(room._id, auth.userId),
+        ],
+        { concurrency: "unbounded" },
+      );
 
     const projection = resolveRoomPlaybackProjection(
       queueItems,
