@@ -1,5 +1,8 @@
-import { FunctionSpec, GroupSpec } from "@confect/core";
+import { FunctionSpec, GenericId, GroupSpec } from "@confect/core";
+import { Schema } from "effect";
 
+import { Unauthorized } from "./rooms/errors";
+import { mutArray, RoomActivityEvent, RoomSummary } from "./rooms/schemas";
 import type {
   clearQueue,
   create,
@@ -7,8 +10,6 @@ import type {
   enqueueTracks,
   follow,
   get,
-  list,
-  listActivity,
   moveQueueItem,
   pause,
   play,
@@ -21,20 +22,35 @@ import type {
 } from "./rooms";
 
 /**
- * The rooms group, ported from `convex/rooms.ts`. These are PLAIN Convex
- * queries/mutations (registered via confect's `convex*` spec constructors) —
- * the natural fit for DB-heavy CRUD coupled to the Presence component, which
- * needs a raw Convex ctx. Arg/return types are extracted from the Convex
- * function types, so the client sees the same types as before (no Effect
- * `returns` schema needed). The logic, including the pure `shared/rooms-state`
- * projection, is unchanged.
+ * The rooms group. Being converted to native confect Effect functions one at a
+ * time — converted ones use `publicQuery`/`publicMutation` with Effect Schema
+ * args/returns + typed errors; the rest are still PLAIN Convex (registered via
+ * `convex*`). Mixing both provenances in one group is supported.
+ *
+ * Native so far: list, listActivity.
  */
 export const rooms = GroupSpec.make("rooms")
-  .addFunction(FunctionSpec.convexPublicQuery<typeof list>()("list"))
-  .addFunction(FunctionSpec.convexPublicQuery<typeof get>()("get"))
   .addFunction(
-    FunctionSpec.convexPublicQuery<typeof listActivity>()("listActivity"),
+    FunctionSpec.publicQuery({
+      name: "list",
+      args: Schema.Struct({}),
+      returns: mutArray(RoomSummary),
+      error: Unauthorized,
+    }),
   )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "listActivity",
+      args: Schema.Struct({
+        roomId: GenericId.GenericId("rooms"),
+        since: Schema.Number,
+        limit: Schema.optional(Schema.Number),
+      }),
+      returns: mutArray(RoomActivityEvent),
+      error: Unauthorized,
+    }),
+  )
+  .addFunction(FunctionSpec.convexPublicQuery<typeof get>()("get"))
   .addFunction(FunctionSpec.convexPublicMutation<typeof create>()("create"))
   .addFunction(FunctionSpec.convexPublicMutation<typeof follow>()("follow"))
   .addFunction(FunctionSpec.convexPublicMutation<typeof unfollow>()("unfollow"))

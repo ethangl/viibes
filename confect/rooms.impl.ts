@@ -1,7 +1,9 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 import api from "./_generated/api";
+import { QueryCtx } from "./_generated/services";
+import { listRoomActivity, listRooms } from "./rooms/core";
 import {
   clearQueue,
   create,
@@ -9,8 +11,6 @@ import {
   enqueueTracks,
   follow,
   get,
-  list,
-  listActivity,
   moveQueueItem,
   pause,
   play,
@@ -22,11 +22,26 @@ import {
   unfollow,
 } from "./rooms";
 
-/** For plain Convex functions the impl IS the Convex function value. */
+// Native confect handlers (yield the ctx service, delegate to the Effect core).
+const list = FunctionImpl.make(api, "rooms", "list", () =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx;
+    return yield* listRooms(ctx);
+  }),
+);
+
+const listActivity = FunctionImpl.make(api, "rooms", "listActivity", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx;
+    return yield* listRoomActivity(ctx, args);
+  }),
+);
+
+// Remaining functions are still plain Convex values (impl = the function value).
 const fns = Layer.mergeAll(
-  FunctionImpl.make(api, "rooms", "list", list),
+  list,
+  listActivity,
   FunctionImpl.make(api, "rooms", "get", get),
-  FunctionImpl.make(api, "rooms", "listActivity", listActivity),
   FunctionImpl.make(api, "rooms", "create", create),
   FunctionImpl.make(api, "rooms", "follow", follow),
   FunctionImpl.make(api, "rooms", "unfollow", unfollow),
