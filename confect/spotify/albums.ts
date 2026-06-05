@@ -132,22 +132,3 @@ export const getAlbumTracks = (albumId: string) =>
         : getAlbumTracksFromDetails(albumId, data),
     ),
   );
-
-/** Ported from `toAlbumError`. */
-export const toAlbumError =
-  (fallback: string) =>
-  (error: LoopError): Error => {
-    if (error._tag === "SpotifyUnauthorized") {
-      return new Error("Reconnect Spotify to load album data.");
-    }
-    if (
-      error._tag === "SpotifyRequestFailed" &&
-      (error.status === 401 || error.status === 403)
-    ) {
-      return new Error("Reconnect Spotify to load album data.");
-    }
-    if (error._tag === "SpotifyRateLimited") {
-      return new Error("Spotify is rate limiting album requests right now.");
-    }
-    return new Error(fallback);
-  };

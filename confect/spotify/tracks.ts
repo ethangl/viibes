@@ -1,11 +1,6 @@
 import { Effect } from "effect";
 
 import { spotifyRequest } from "../../auth-loop/client";
-import type {
-  SpotifyNetworkError,
-  SpotifyRequestFailed,
-  SpotifyUnauthorized,
-} from "../../auth-loop/errors";
 import { DEFAULT_LIMIT } from "./constants";
 import { mapTrack, type SpotifyApiTrack } from "./mappers";
 import type {
@@ -23,11 +18,6 @@ interface RecentlyPlayedResponse {
 }
 
 // Errors that survive after the rate-limit case is handled inline.
-type TracksError =
-  | SpotifyUnauthorized
-  | SpotifyRequestFailed
-  | SpotifyNetworkError;
-
 // ── Pure cursor-page helpers (ported verbatim) ───────────────────────────────
 
 function parseSpotifyNumberCursor(value: string | null | undefined) {
@@ -111,17 +101,3 @@ export const loadRecentlyPlayedResult = (
       }),
     ),
   );
-
-/** Ported from `toTracksError`. */
-export const toTracksError =
-  (fallback: string) =>
-  (error: TracksError): Error => {
-    if (
-      error._tag === "SpotifyUnauthorized" ||
-      (error._tag === "SpotifyRequestFailed" &&
-        (error.status === 401 || error.status === 403))
-    ) {
-      return new Error("Reconnect Spotify to load your listening activity.");
-    }
-    return new Error(fallback);
-  };

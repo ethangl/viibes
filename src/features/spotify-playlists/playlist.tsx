@@ -2,6 +2,8 @@ import { FC, useCallback } from "react";
 import { useParams } from "react-router-dom";
 
 import { SidebarContent } from "@/components/sidebar";
+import { LoginButton } from "@/features/auth";
+import { getSpotifyErrorMessage } from "@/features/spotify-client/spotify-error";
 import type {
   SpotifyPlaylist,
   SpotifyTrack,
@@ -18,17 +20,23 @@ import {
 export const Playlist: FC = () => {
   const { playlistId } = useParams();
 
-  const { data: playlist } = useStableAction<SpotifyPlaylist | null>({
-    enabled: Boolean(playlistId),
-    keepDataOnLoad: false,
-    load: useCallback(async () => {
-      if (!playlistId) {
-        return null;
-      }
+  const { data: playlist, error: playlistError } =
+    useStableAction<SpotifyPlaylist | null>({
+      enabled: Boolean(playlistId),
+      keepDataOnLoad: false,
+      load: useCallback(async () => {
+        if (!playlistId) {
+          return null;
+        }
 
-      return await getSpotifyPlaylist(playlistId);
-    }, [playlistId]),
-  });
+        return await getSpotifyPlaylist(playlistId);
+      }, [playlistId]),
+      mapError: useCallback(
+        (error: unknown) =>
+          getSpotifyErrorMessage(error, "Could not load this playlist."),
+        [],
+      ),
+    });
 
   const { data: tracks } = useStableAction<SpotifyTrack[]>({
     enabled: Boolean(playlistId),
@@ -43,6 +51,23 @@ export const Playlist: FC = () => {
   });
 
   if (!playlist) {
+    // A failed load used to render a blank screen (the action's real error was
+    // an opaque UnknownException). Now the typed error surfaces a message and a
+    // reconnect affordance for the "Reconnect Spotify" case.
+    if (playlistError) {
+      return (
+        <>
+          <SpotifyHeader href="/home" title="Playlist" />
+          <SidebarContent>
+            <div className="flex flex-col items-start gap-3 px-4 py-8">
+              <p className="text-sm text-muted-foreground">{playlistError}</p>
+              <LoginButton />
+            </div>
+          </SidebarContent>
+        </>
+      );
+    }
+
     return null;
   }
 

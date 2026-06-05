@@ -1,6 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import { Schema } from "effect";
 
+import { SpotifyAuthRequired, SpotifyUnavailable } from "./spotify/errors";
 import {
   mutArray,
   SpotifyAlbumDetailsSchema,
@@ -28,6 +29,13 @@ const ReleaseGroup = Schema.Literal("album", "single");
 const RepeatState = Schema.Literal("track", "context", "off");
 const TrackArray = mutArray(SpotifyTrackSchema);
 
+// Shared error union for every Spotify-touching function. Confect encodes these
+// into a `ConvexError` the client can read (vs orDie's opaque UnknownException).
+// A 401/expired token → `SpotifyAuthRequired` ("Reconnect Spotify"); anything
+// else → `SpotifyUnavailable`. Loaders carry it too so the typed failure
+// survives the action-cache `runAction` boundary back to the public action.
+const SpotifyError = Schema.Union(SpotifyAuthRequired, SpotifyUnavailable);
+
 export const spotify = GroupSpec.make("spotify")
   // ── search ──
   .addFunction(
@@ -35,6 +43,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "search",
       args: Schema.Struct({ query: Schema.String }),
       returns: SpotifySearchResultsSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -42,6 +51,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "searchTracks",
       args: Schema.Struct({ query: Schema.String }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -49,6 +59,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "loadSearchResults",
       args: Schema.Struct({ query: Schema.String }),
       returns: SpotifySearchResultsSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -56,6 +67,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "loadSearchTracks",
       args: Schema.Struct({ query: Schema.String }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   // ── artists ──
@@ -64,6 +76,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "artistPage",
       args: Schema.Struct({ artistId: Schema.String }),
       returns: Schema.NullOr(SpotifyArtistPageDataSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -76,6 +89,7 @@ export const spotify = GroupSpec.make("spotify")
         offset: Schema.optional(Schema.Number),
       }),
       returns: SpotifyAlbumReleasePageSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -83,6 +97,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "topArtists",
       args: Schema.Struct({ limit: Schema.optional(Schema.Number) }),
       returns: mutArray(SpotifyArtistSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -94,6 +109,7 @@ export const spotify = GroupSpec.make("spotify")
         forceRefresh: Schema.optional(Schema.Boolean),
       }),
       returns: SpotifyFavoriteArtistsPageSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -104,6 +120,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: Schema.NullOr(SpotifyArtistPageDataSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -117,6 +134,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: SpotifyAlbumReleasePageSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -124,6 +142,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "loadTopArtists",
       args: Schema.Struct({ limit: Schema.Number, cacheScope: Schema.String }),
       returns: mutArray(SpotifyArtistSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -135,6 +154,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: SpotifyFavoriteArtistsPageSchema,
+      error: SpotifyError,
     }),
   )
   // ── albums ──
@@ -143,6 +163,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "album",
       args: Schema.Struct({ albumId: Schema.String }),
       returns: Schema.NullOr(SpotifyAlbumDetailsSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -150,6 +171,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "albumTracks",
       args: Schema.Struct({ albumId: Schema.String }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -157,6 +179,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "loadAlbum",
       args: Schema.Struct({ albumId: Schema.String }),
       returns: Schema.NullOr(SpotifyAlbumDetailsSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -164,6 +187,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "loadAlbumTracks",
       args: Schema.Struct({ albumId: Schema.String }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   // ── recently played ──
@@ -176,6 +200,7 @@ export const spotify = GroupSpec.make("spotify")
         limit: Schema.optional(Schema.Number),
       }),
       returns: SpotifyRecentlyPlayedPageResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -187,6 +212,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: SpotifyRecentlyPlayedPageResultSchema,
+      error: SpotifyError,
     }),
   )
   // ── playlists ──
@@ -199,6 +225,7 @@ export const spotify = GroupSpec.make("spotify")
         forceRefresh: Schema.optional(Schema.Boolean),
       }),
       returns: SpotifyPlaylistsPageSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -206,6 +233,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playlist",
       args: Schema.Struct({ playlistId: Schema.String }),
       returns: Schema.NullOr(SpotifyPlaylistSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -213,6 +241,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playlistTracks",
       args: Schema.Struct({ playlistId: Schema.String }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -224,6 +253,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: SpotifyPlaylistsPageSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -234,6 +264,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: Schema.NullOr(SpotifyPlaylistSchema),
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -244,6 +275,7 @@ export const spotify = GroupSpec.make("spotify")
         cacheScope: Schema.String,
       }),
       returns: TrackArray,
+      error: SpotifyError,
     }),
   )
   // ── playback (uncached) ──
@@ -252,6 +284,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playbackCurrentlyPlaying",
       args: Schema.Struct({}),
       returns: SpotifyPlaybackCurrentlyPlayingResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -263,6 +296,7 @@ export const spotify = GroupSpec.make("spotify")
         offsetMs: Schema.optional(Schema.Number),
       }),
       returns: SpotifyPlaybackResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -270,6 +304,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playbackResume",
       args: Schema.Struct({}),
       returns: SpotifyPlaybackResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -277,6 +312,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playbackPause",
       args: Schema.Struct({}),
       returns: SpotifyPlaybackResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -287,6 +323,7 @@ export const spotify = GroupSpec.make("spotify")
         deviceId: Schema.optional(Schema.String),
       }),
       returns: SpotifyPlaybackResultSchema,
+      error: SpotifyError,
     }),
   )
   .addFunction(
@@ -294,6 +331,7 @@ export const spotify = GroupSpec.make("spotify")
       name: "playbackSetVolume",
       args: Schema.Struct({ percent: Schema.Number }),
       returns: SpotifyPlaybackResultSchema,
+      error: SpotifyError,
     }),
   )
   // ── cache management ──

@@ -2,29 +2,21 @@ import { Effect, Layer, Ref } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-  SpotifyNetworkError,
-  SpotifyRateLimited,
-  SpotifyRequestFailed,
-  SpotifyUnauthorized,
-} from "../../auth-loop/errors";
-import {
   CoalescerLive,
   CooldownInMemory,
   SpotifyHttp,
   type SpotifyResponse,
   TokenSource,
 } from "../../auth-loop/services";
-import { getAlbumTracks, toAlbumError } from "./albums";
+import { getAlbumTracks } from "./albums";
 import {
   getArtistPageDataResult,
   getArtistPageMarket,
   getFavoriteArtists,
   getTopArtists,
-  toArtistRequestError,
 } from "./artists";
-import { getPlaylist, getUserPlaylists, toPlaylistsError } from "./playlists";
-import { loadRecentlyPlayedResult, toTracksError } from "./tracks";
-import { toSearchError } from "./search";
+import { getPlaylist, getUserPlaylists } from "./playlists";
+import { loadRecentlyPlayedResult } from "./tracks";
 
 // ── Fake SpotifyHttp that replays a scripted response queue ──────────────────
 // The endpoint logic runs `spotifyRequest` against the `SpotifyHttp` service;
@@ -88,61 +80,6 @@ const run = <A, E>(
       ),
     ),
   );
-
-// ── Error mappers (pure) — the user-facing messages the load actions surface ──
-describe("spotify error mappers", () => {
-  const rateLimited = new SpotifyRateLimited({ retryAfterSeconds: 30 });
-  const unauthorized = new SpotifyUnauthorized();
-  const networkError = new SpotifyNetworkError({ cause: "boom" });
-  const forbidden = new SpotifyRequestFailed({ status: 403, body: "" });
-
-  it("maps search errors", () => {
-    expect(toSearchError(rateLimited).message).toBe(
-      "Spotify is rate limiting search right now.",
-    );
-    expect(toSearchError(unauthorized).message).toBe(
-      "Reconnect Spotify to search.",
-    );
-    expect(toSearchError(forbidden).message).toBe("Reconnect Spotify to search.");
-  });
-
-  it("maps album errors", () => {
-    expect(toAlbumError("Could not load album.")(rateLimited).message).toBe(
-      "Spotify is rate limiting album requests right now.",
-    );
-    expect(toAlbumError("Could not load album.")(networkError).message).toBe(
-      "Could not load album.",
-    );
-  });
-
-  it("maps artist errors", () => {
-    expect(
-      toArtistRequestError("Could not load artist right now.")(rateLimited)
-        .message,
-    ).toBe("Spotify is rate limiting artist requests right now.");
-    expect(
-      toArtistRequestError("Could not load favorite artists right now.")(
-        networkError,
-      ).message,
-    ).toBe("Could not load favorite artists right now.");
-  });
-
-  it("maps playlist errors", () => {
-    expect(toPlaylistsError("Could not load playlists.")(rateLimited).message).toBe(
-      "Spotify is rate limiting activity requests right now.",
-    );
-    expect(
-      toPlaylistsError("Could not load playlists.")(networkError).message,
-    ).toBe("Could not load playlists.");
-  });
-
-  it("maps tracks errors", () => {
-    expect(
-      toTracksError("Could not load your recent tracks right now.")(unauthorized)
-        .message,
-    ).toBe("Reconnect Spotify to load your listening activity.");
-  });
-});
 
 // ── Logic behaviors via the fake http layer ──────────────────────────────────
 describe("spotify loader logic", () => {

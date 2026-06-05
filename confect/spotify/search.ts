@@ -1,12 +1,6 @@
 import { Effect } from "effect";
 
 import { spotifyRequest } from "../../auth-loop/client";
-import type {
-  SpotifyNetworkError,
-  SpotifyRateLimited,
-  SpotifyRequestFailed,
-  SpotifyUnauthorized,
-} from "../../auth-loop/errors";
 import {
   isSpotifyArtist,
   isSpotifyTrack,
@@ -49,29 +43,3 @@ export const searchTracksByName = (query: string) =>
         (data?.tracks?.items ?? []).filter(isSpotifyTrack).map(mapTrack),
     ),
   );
-
-/**
- * Ported from `toSearchError`. Collapses the loop's tagged errors into the same
- * user-facing messages the original threw (which the frontend already handles).
- */
-export const toSearchError = (
-  error:
-    | SpotifyRateLimited
-    | SpotifyRequestFailed
-    | SpotifyUnauthorized
-    | SpotifyNetworkError,
-): Error => {
-  if (error._tag === "SpotifyUnauthorized") {
-    return new Error("Reconnect Spotify to search.");
-  }
-  if (
-    error._tag === "SpotifyRequestFailed" &&
-    (error.status === 401 || error.status === 403)
-  ) {
-    return new Error("Reconnect Spotify to search.");
-  }
-  if (error._tag === "SpotifyRateLimited") {
-    return new Error("Spotify is rate limiting search right now.");
-  }
-  return new Error("Could not search Spotify right now.");
-};

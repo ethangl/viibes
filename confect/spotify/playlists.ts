@@ -1,12 +1,7 @@
 import { Effect } from "effect";
 
 import { spotifyRequest } from "../../auth-loop/client";
-import type {
-  SpotifyNetworkError,
-  SpotifyRateLimited,
-  SpotifyRequestFailed,
-  SpotifyUnauthorized,
-} from "../../auth-loop/errors";
+import type { SpotifyRequestFailed } from "../../auth-loop/errors";
 import { DEFAULT_LIMIT, DEFAULT_OFFSET } from "./constants";
 import {
   isSpotifyTrack,
@@ -42,12 +37,6 @@ interface PlaylistTracksResponse {
     item?: SpotifyApiTrack | null;
   }[];
 }
-
-type LoopError =
-  | SpotifyRateLimited
-  | SpotifyRequestFailed
-  | SpotifyUnauthorized
-  | SpotifyNetworkError;
 
 /** Ported from `getUserPlaylists`. */
 export const getUserPlaylists = (
@@ -99,20 +88,3 @@ export const getPlaylistTracks = (playlistId: string) =>
             .map(mapTrack),
     ),
   );
-
-/** Ported from `toPlaylistsError`. */
-export const toPlaylistsError =
-  (fallback: string) =>
-  (error: LoopError): Error => {
-    if (
-      error._tag === "SpotifyUnauthorized" ||
-      (error._tag === "SpotifyRequestFailed" &&
-        (error.status === 401 || error.status === 403))
-    ) {
-      return new Error("Reconnect Spotify to load your listening activity.");
-    }
-    if (error._tag === "SpotifyRateLimited") {
-      return new Error("Spotify is rate limiting activity requests right now.");
-    }
-    return new Error(fallback);
-  };

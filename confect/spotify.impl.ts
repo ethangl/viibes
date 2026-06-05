@@ -5,21 +5,28 @@ import {
   type DefaultFunctionArgs,
   type FunctionReference,
 } from "convex/server";
+import { ConvexError } from "convex/values";
 import { Effect, Layer } from "effect";
 
+import type {
+  SpotifyNetworkError,
+  SpotifyRateLimited,
+  SpotifyRequestFailed,
+  SpotifyUnauthorized,
+} from "../auth-loop/errors";
 import { components } from "../convex/_generated/api";
 import api from "./_generated/api";
 import { ActionCtx } from "./_generated/services";
-import { getAlbum, getAlbumTracks, toAlbumError } from "./spotify/albums";
+import { getAlbum, getAlbumTracks } from "./spotify/albums";
 import {
   getArtistPageDataResult,
   getArtistPageMarket,
   getArtistReleasesPage,
   getFavoriteArtists,
   getTopArtists,
-  toArtistRequestError,
 } from "./spotify/artists";
 import { DAY_IN_MS, DEFAULT_LIMIT, DEFAULT_OFFSET } from "./spotify/constants";
+import { SpotifyAuthRequired, SpotifyUnavailable } from "./spotify/errors";
 import { SpotifyLive } from "./spotify/live";
 import {
   getCurrentlyPlaying,
@@ -33,13 +40,9 @@ import {
   getPlaylist,
   getPlaylistTracks,
   getUserPlaylists,
-  toPlaylistsError,
 } from "./spotify/playlists";
-import { searchSpotify, searchTracksByName, toSearchError } from "./spotify/search";
-import {
-  loadRecentlyPlayedResult,
-  toTracksError,
-} from "./spotify/tracks";
+import { searchSpotify, searchTracksByName } from "./spotify/search";
+import { loadRecentlyPlayedResult } from "./spotify/tracks";
 import { requireSpotifyAccessToken } from "./spotify/session";
 import type {
   SpotifyAlbumDetails,
@@ -191,6 +194,56 @@ const spotifyPlaylistTracksCache = new ActionCache(cache, {
   ttl: DAY_IN_MS,
 });
 
+// ── Typed-error mapping ──────────────────────────────────────────────────────
+// Loaders fail with these typed errors (declared in spotify.spec.ts) so confect
+// encodes them into a ConvexError the client can read, instead of orDie's
+// opaque UnknownException. A 401/403/Unauthorized means the token is dead →
+// the user must reconnect; anything else is transient/unavailable.
+type SpotifyLoopError =
+  | SpotifyRateLimited
+  | SpotifyRequestFailed
+  | SpotifyUnauthorized
+  | SpotifyNetworkError;
+
+const toSpotifyError =
+  (fallback: string) =>
+  (error: SpotifyLoopError): SpotifyAuthRequired | SpotifyUnavailable => {
+    if (
+      error._tag === "SpotifyUnauthorized" ||
+      (error._tag === "SpotifyRequestFailed" &&
+        (error.status === 401 || error.status === 403))
+    ) {
+      return new SpotifyAuthRequired({
+        message: "Reconnect Spotify to continue.",
+      });
+    }
+    return new SpotifyUnavailable({ message: fallback });
+  };
+
+// On a cache miss the loader's typed failure crosses the action-cache
+// `runAction` boundary as a ConvexError; map it back into the typed channel so
+// the public action re-surfaces it (rather than orDie's opaque failure).
+const fromConvexError = (
+  cause: unknown,
+): SpotifyAuthRequired | SpotifyUnavailable => {
+  if (cause instanceof ConvexError) {
+    const data = cause.data as { _tag?: string; message?: string } | null;
+    if (data?._tag === "SpotifyAuthRequired") {
+      return new SpotifyAuthRequired({
+        message: data.message ?? "Reconnect Spotify to continue.",
+      });
+    }
+    if (data?._tag === "SpotifyUnavailable") {
+      return new SpotifyUnavailable({
+        message: data.message ?? "Spotify is unavailable right now.",
+      });
+    }
+  }
+  return new SpotifyUnavailable({
+    message: "Spotify is unavailable right now.",
+  });
+};
+
 // ── Internal load actions (run on cache miss) ────────────────────────────────
 const loadSearchResults = FunctionImpl.make(
   api,
@@ -199,8 +252,7 @@ const loadSearchResults = FunctionImpl.make(
   ({ query }) =>
     searchSpotify(query).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toSearchError),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not search Spotify right now.")),
     ),
 );
 const loadSearchTracks = FunctionImpl.make(
@@ -210,8 +262,7 @@ const loadSearchTracks = FunctionImpl.make(
   ({ query }) =>
     searchTracksByName(query).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toSearchError),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not search Spotify right now.")),
     ),
 );
 const loadArtistPage = FunctionImpl.make(
@@ -230,8 +281,7 @@ const loadArtistPage = FunctionImpl.make(
         () => Effect.succeed<SpotifyArtistPageData | null>(null),
       ),
       Effect.provide(SpotifyLive),
-      Effect.mapError(toArtistRequestError("Could not load artist right now.")),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not load artist right now.")),
     ),
 );
 const loadArtistReleasesPage = FunctionImpl.make(
@@ -249,9 +299,8 @@ const loadArtistReleasesPage = FunctionImpl.make(
     }).pipe(
       Effect.provide(SpotifyLive),
       Effect.mapError(
-        toArtistRequestError("Could not load artist releases right now."),
+        toSpotifyError("Could not load artist releases right now."),
       ),
-      Effect.orDie,
     ),
 );
 const loadTopArtists = FunctionImpl.make(
@@ -272,16 +321,14 @@ const loadFavoriteArtists = FunctionImpl.make(
     getFavoriteArtists(limit, after).pipe(
       Effect.provide(SpotifyLive),
       Effect.mapError(
-        toArtistRequestError("Could not load favorite artists right now."),
+        toSpotifyError("Could not load favorite artists right now."),
       ),
-      Effect.orDie,
     ),
 );
 const loadAlbum = FunctionImpl.make(api, "spotify", "loadAlbum", ({ albumId }) =>
   getAlbum(albumId).pipe(
     Effect.provide(SpotifyLive),
-    Effect.mapError(toAlbumError("Could not load album.")),
-    Effect.orDie,
+    Effect.mapError(toSpotifyError("Could not load album.")),
   ),
 );
 const loadAlbumTracks = FunctionImpl.make(
@@ -291,8 +338,7 @@ const loadAlbumTracks = FunctionImpl.make(
   ({ albumId }) =>
     getAlbumTracks(albumId).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toAlbumError("Could not load album tracks.")),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not load album tracks.")),
     ),
 );
 const loadRecentlyPlayed = FunctionImpl.make(
@@ -303,9 +349,8 @@ const loadRecentlyPlayed = FunctionImpl.make(
     loadRecentlyPlayedResult(before, limit).pipe(
       Effect.provide(SpotifyLive),
       Effect.mapError(
-        toTracksError("Could not load your recent tracks right now."),
+        toSpotifyError("Could not load your recent tracks right now."),
       ),
-      Effect.orDie,
     ),
 );
 const loadPlaylistsPage = FunctionImpl.make(
@@ -315,8 +360,7 @@ const loadPlaylistsPage = FunctionImpl.make(
   ({ limit, offset }) =>
     getUserPlaylists(limit, offset).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toPlaylistsError("Could not load playlists.")),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not load playlists.")),
     ),
 );
 const loadPlaylist = FunctionImpl.make(
@@ -326,8 +370,7 @@ const loadPlaylist = FunctionImpl.make(
   ({ playlistId }) =>
     getPlaylist(playlistId).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toPlaylistsError("Could not load playlist.")),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not load playlist.")),
     ),
 );
 const loadPlaylistTracks = FunctionImpl.make(
@@ -337,8 +380,7 @@ const loadPlaylistTracks = FunctionImpl.make(
   ({ playlistId }) =>
     getPlaylistTracks(playlistId).pipe(
       Effect.provide(SpotifyLive),
-      Effect.mapError(toPlaylistsError("Could not load playlist tracks.")),
-      Effect.orDie,
+      Effect.mapError(toSpotifyError("Could not load playlist tracks.")),
     ),
 );
 
@@ -362,11 +404,14 @@ const requireIdentity = async (ctx: ActionCtx) => {
 const search = FunctionImpl.make(api, "spotify", "search", ({ query }) =>
   Effect.gen(function* () {
     const ctx = yield* ActionCtx;
-    return yield* Effect.tryPromise(async () => {
-      await requireIdentity(ctx);
-      return spotifySearchResultsCache.fetch(ctx, { query });
+    return yield* Effect.tryPromise({
+      try: async () => {
+        await requireIdentity(ctx);
+        return spotifySearchResultsCache.fetch(ctx, { query });
+      },
+      catch: fromConvexError,
     });
-  }).pipe(Effect.orDie),
+  }),
 );
 const searchTracks = FunctionImpl.make(
   api,
@@ -375,11 +420,14 @@ const searchTracks = FunctionImpl.make(
   ({ query }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        await requireIdentity(ctx);
-        return spotifySearchTracksCache.fetch(ctx, { query });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          await requireIdentity(ctx);
+          return spotifySearchTracksCache.fetch(ctx, { query });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const artistPage = FunctionImpl.make(
   api,
@@ -388,14 +436,17 @@ const artistPage = FunctionImpl.make(
   ({ artistId }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyArtistPageCache.fetch(ctx, {
-          artistId,
-          cacheScope: subject,
-        });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyArtistPageCache.fetch(ctx, {
+            artistId,
+            cacheScope: subject,
+          });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const artistReleasesPage = FunctionImpl.make(
   api,
@@ -404,29 +455,35 @@ const artistReleasesPage = FunctionImpl.make(
   ({ artistId, includeGroups, limit, offset }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyArtistReleasesPageCache.fetch(ctx, {
-          artistId,
-          includeGroups,
-          limit: limit ?? DEFAULT_LIMIT,
-          offset: offset ?? DEFAULT_OFFSET,
-          cacheScope: subject,
-        });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyArtistReleasesPageCache.fetch(ctx, {
+            artistId,
+            includeGroups,
+            limit: limit ?? DEFAULT_LIMIT,
+            offset: offset ?? DEFAULT_OFFSET,
+            cacheScope: subject,
+          });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const topArtists = FunctionImpl.make(api, "spotify", "topArtists", ({ limit }) =>
   Effect.gen(function* () {
     const ctx = yield* ActionCtx;
-    return yield* Effect.tryPromise(async () => {
-      const { subject } = await requireIdentity(ctx);
-      return spotifyTopArtistsCache.fetch(ctx, {
-        limit: limit ?? DEFAULT_LIMIT,
-        cacheScope: subject,
-      });
+    return yield* Effect.tryPromise({
+      try: async () => {
+        const { subject } = await requireIdentity(ctx);
+        return spotifyTopArtistsCache.fetch(ctx, {
+          limit: limit ?? DEFAULT_LIMIT,
+          cacheScope: subject,
+        });
+      },
+      catch: fromConvexError,
     });
-  }).pipe(Effect.orDie),
+  }),
 );
 const favoriteArtists = FunctionImpl.make(
   api,
@@ -435,28 +492,34 @@ const favoriteArtists = FunctionImpl.make(
   ({ after, limit, forceRefresh }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyFavoriteArtistsCache.fetch(
-          ctx,
-          {
-            after: after ?? null,
-            limit: limit ?? DEFAULT_LIMIT,
-            cacheScope: subject,
-          },
-          forceRefresh ? { force: true } : undefined,
-        );
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyFavoriteArtistsCache.fetch(
+            ctx,
+            {
+              after: after ?? null,
+              limit: limit ?? DEFAULT_LIMIT,
+              cacheScope: subject,
+            },
+            forceRefresh ? { force: true } : undefined,
+          );
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const album = FunctionImpl.make(api, "spotify", "album", ({ albumId }) =>
   Effect.gen(function* () {
     const ctx = yield* ActionCtx;
-    return yield* Effect.tryPromise(async () => {
-      await requireIdentity(ctx);
-      return spotifyAlbumCache.fetch(ctx, { albumId });
+    return yield* Effect.tryPromise({
+      try: async () => {
+        await requireIdentity(ctx);
+        return spotifyAlbumCache.fetch(ctx, { albumId });
+      },
+      catch: fromConvexError,
     });
-  }).pipe(Effect.orDie),
+  }),
 );
 const albumTracks = FunctionImpl.make(
   api,
@@ -465,11 +528,14 @@ const albumTracks = FunctionImpl.make(
   ({ albumId }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        await requireIdentity(ctx);
-        return spotifyAlbumTracksCache.fetch(ctx, { albumId });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          await requireIdentity(ctx);
+          return spotifyAlbumTracksCache.fetch(ctx, { albumId });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const recentlyPlayed = FunctionImpl.make(
   api,
@@ -478,19 +544,22 @@ const recentlyPlayed = FunctionImpl.make(
   ({ before, forceRefresh, limit }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyRecentlyPlayedCache.fetch(
-          ctx,
-          {
-            before: before ?? null,
-            limit: limit ?? DEFAULT_LIMIT,
-            cacheScope: subject,
-          },
-          forceRefresh ? { force: true } : undefined,
-        );
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyRecentlyPlayedCache.fetch(
+            ctx,
+            {
+              before: before ?? null,
+              limit: limit ?? DEFAULT_LIMIT,
+              cacheScope: subject,
+            },
+            forceRefresh ? { force: true } : undefined,
+          );
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const playlistsPage = FunctionImpl.make(
   api,
@@ -499,19 +568,22 @@ const playlistsPage = FunctionImpl.make(
   ({ limit, offset, forceRefresh }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyPlaylistsPageCache.fetch(
-          ctx,
-          {
-            limit: limit ?? DEFAULT_LIMIT,
-            offset: offset ?? DEFAULT_OFFSET,
-            cacheScope: subject,
-          },
-          forceRefresh ? { force: true } : undefined,
-        );
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyPlaylistsPageCache.fetch(
+            ctx,
+            {
+              limit: limit ?? DEFAULT_LIMIT,
+              offset: offset ?? DEFAULT_OFFSET,
+              cacheScope: subject,
+            },
+            forceRefresh ? { force: true } : undefined,
+          );
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const playlist = FunctionImpl.make(
   api,
@@ -520,14 +592,17 @@ const playlist = FunctionImpl.make(
   ({ playlistId }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyPlaylistCache.fetch(ctx, {
-          playlistId,
-          cacheScope: subject,
-        });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyPlaylistCache.fetch(ctx, {
+            playlistId,
+            cacheScope: subject,
+          });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 const playlistTracks = FunctionImpl.make(
   api,
@@ -536,25 +611,31 @@ const playlistTracks = FunctionImpl.make(
   ({ playlistId }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        const { subject } = await requireIdentity(ctx);
-        return spotifyPlaylistTracksCache.fetch(ctx, {
-          playlistId,
-          cacheScope: subject,
-        });
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { subject } = await requireIdentity(ctx);
+          return spotifyPlaylistTracksCache.fetch(ctx, {
+            playlistId,
+            cacheScope: subject,
+          });
+        },
+        catch: fromConvexError,
       });
-    }).pipe(Effect.orDie),
+    }),
 );
 
-// Playback (uncached): fetch the token, run the playback effect.
+// Playback (uncached): fetch the token, run the playback effect. A token
+// failure surfaces as SpotifyAuthRequired so the UI can prompt a reconnect.
 const withAccessToken = <A>(run: (token: string) => Effect.Effect<A>) =>
   Effect.gen(function* () {
     const ctx = yield* ActionCtx;
-    const token = yield* Effect.tryPromise(() =>
-      requireSpotifyAccessToken(ctx),
-    );
+    const token = yield* Effect.tryPromise({
+      try: () => requireSpotifyAccessToken(ctx),
+      catch: () =>
+        new SpotifyAuthRequired({ message: "Reconnect Spotify to continue." }),
+    });
     return yield* run(token);
-  }).pipe(Effect.orDie);
+  });
 
 const playbackCurrentlyPlaying = FunctionImpl.make(
   api,

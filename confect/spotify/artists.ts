@@ -255,20 +255,3 @@ export const getArtistPageMarket = () =>
       Effect.succeed<string | null>(null),
     ),
   );
-
-/** Ported from `toArtistRequestError`. */
-export const toArtistRequestError =
-  (fallback: string) =>
-  (error: LoopError): Error => {
-    if (
-      error._tag === "SpotifyUnauthorized" ||
-      (error._tag === "SpotifyRequestFailed" &&
-        (error.status === 401 || error.status === 403))
-    ) {
-      return new Error("Reconnect Spotify to load artists.");
-    }
-    if (error._tag === "SpotifyRateLimited") {
-      return new Error("Spotify is rate limiting artist requests right now.");
-    }
-    return new Error(fallback);
-  };
