@@ -29,9 +29,13 @@ architectural change. We stop being blocked on Spotify's decision.
 - **Sync drift across heterogeneous SDKs.** Each provider's player has its own
   buffering/seek quirks. Our sync model already tolerates drift correction; the
   tax is re-validating it per provider.
-- **MusicKit on the Web is still labelled Beta.** It works for production-style
-  use and there's no approval gate, but it's a beta surface Apple can change.
-  This is a stability risk to track, not a blocker.
+- **MusicKit on the Web is (last-known) still Beta.** No approval gate, but a
+  beta surface Apple can change. Couldn't re-verify in June 2026 — the docs page
+  (`developer.apple.com/musickit/web/`) now redirects to client-rendered v3 docs
+  that don't fetch cleanly; confirm by eye in a browser before relying on it.
+  Stability risk to track, not a blocker. Full-song playback **requires the
+  listener to have an active Apple Music subscription** (Music User Token from
+  `authorize()`); non-subscribers get previews only — same model as Spotify.
 
 ## What's already portable (do not touch)
 
@@ -90,10 +94,16 @@ include `external_ids.isrc`. The app currently fetches these payloads and
 (`mapTrack`) doesn't read it, and the `SpotifyApiTrack` interface doesn't even
 declare `external_ids`. Capturing it is the bulk of step 1.
 
+- **`external_ids` is safe — but it's a close call.** Spotify marked
+  `external_ids` *removed* in the February 2026 changelog, then **[REVERTED] it
+  in March 2026** ("will continue to be available") for both tracks and albums.
+  So step 1 holds. It's also the *only* Spotify field we now depend on, which is
+  the right amount of exposure to a provider this volatile.
 - **Gap:** album-track enqueues hit `/albums/{id}/tracks`, which returns
   *simplified* track objects with no `external_ids`. Those rows get
   `isrc: undefined` for now; a later pass can re-fetch full track objects via
-  `/tracks/{id}` or resolve by metadata.
+  individual `/tracks/{id}` (note: Spotify removed *batch* `GET /tracks` in Feb
+  2026) or resolve by metadata.
 - **MusicBrainz is _not_ the ISRC source.** The existing component
   (`confect/musicbrainz.impl.ts` + `components/musicbrainz/`) is **artist-only**
   (`artistBySpotifyId`, `spotifyArtistIdByMusicBrainzId`) — it has no
@@ -134,10 +144,17 @@ client player. A Convex action takes `(isrc, provider)` and returns a
 `providerTrackId | null` by hitting that provider's catalog API:
 
 ```ts
-// confect action (sketch)
-resolveTrack(isrc: string, provider: "spotify" | "apple"):
+// As built: item-centric so the cache write-back has somewhere to land.
+playback.resolveTrack(queueItemId, provider: "spotify" | "apple"):
   Promise<string | null>
 ```
+
+**Env prerequisite (3-1):** the Apple path is inert until these Convex env vars
+are set — `APPLE_MUSIC_DEVELOPER_TOKEN` (a pre-generated app-level token, valid
+~6 months; no runtime signing) and optional `APPLE_MUSIC_STOREFRONT` (defaults
+to `us`). Without the token, `resolveTrack(_, "apple")` returns null and does
+**not** cache, so it starts working the moment the token lands. Spotify needs no
+config (identity resolution).
 
 Why server-side:
 
@@ -203,8 +220,8 @@ before MusicKit is involved at all.
    args → the `roomQueueItems` row (optional field; album-track adds and
    pre-existing rows are left `undefined`). No MusicBrainz, no behavior change.
 2. ~~**Extract `SpotifyProvider` behind the `PlaybackProvider` interface** and
-   route `useRoomSyncController` through it.~~ **DONE (in working tree, not yet
-   merged).** New neutral `src/features/playback/` holds `PlaybackProvider`
+   route `useRoomSyncController` through it.~~ **DONE (merged).** New neutral
+   `src/features/playback/` holds `PlaybackProvider`
    (`syncTrack` / `togglePlay` / normalized `snapshot`), with
    `useSpotifyPlaybackProvider` wrapping the existing web-player context and
    `usePlaybackProvider` selecting it. `useRoomSyncController` now imports only
@@ -217,24 +234,67 @@ before MusicKit is involved at all.
    must compare against the *resolved* provider key for the current canonical
    track (the server-side `resolveTrack` result), not the raw `trackId`. Marked
    with a comment at the comparison site.
-3. **Add `AppleMusicProvider` (MusicKit JS)** plus per-user provider
-   connection/selection and the unavailable-track UX.
+3. **Multi-provider** — split into three pieces:
+   - **3-1. Server-side resolution + `providerHints` cache.** ~~Build the
+     `resolveTrack` action + cache.~~ **DONE (working tree, not merged).** New
+     `playback` confect group: `resolveTrack(queueItemId, provider)` (public
+     action) orchestrates `queueItemResolutionInputs` (internal query) →
+     `chooseResolution` (pure, `confect/playback/resolution.ts`) → Apple catalog
+     lookup (`confect/applemusic/catalog.ts`) → `cacheProviderHint` (internal
+     mutation). `providerHints` added to `roomQueueItems`. Spotify resolves by
+     identity (origin `trackId`); Apple resolves by ISRC via the batch endpoint,
+     **inert until `APPLE_MUSIC_DEVELOPER_TOKEN` is set** (returns null without
+     poisoning the cache). Negative results cached. Not yet consumed by the
+     client — that's 3-3. Unit-tested (resolution logic + Apple client).
+   - **3-2. `AppleMusicProvider` (MusicKit JS)** — the client player behind the
+     `PlaybackProvider` interface from step 2.
+   - **3-3. Per-user provider connection/selection** + wire the sync controller
+     through `resolveTrack` (fixes the step-2 carry-forward) + unavailable-track
+     UX.
 
 ## Decisions
 
 - **Resolution runs through a Convex action**, caching results into the queue
   item's `providerHints` (see "Resolution runs server-side" above). Settled.
-- **Canonical catalog source will likely shift to Apple Music** (its song
-  objects expose ISRC directly, which removes the MusicBrainz hop for new
-  tracks) — *contingent on its search API actually being better than Spotify's*.
-  This is unverified and may not hold. Until evaluated, Spotify stays the search
-  source and MusicBrainz backfills ISRC. Decouple this from playback: the
-  catalog source only affects how tracks get *added* to a queue, not how they
-  play, so it can change later without touching the provider layer.
+- **Canonical catalog source moves to Apple Music. Confirmed** (was contingent
+  on Apple's search being better than Spotify's — verification below says it is,
+  largely because Spotify degraded). Decoupled from playback: catalog source
+  only affects how tracks are *added*, not how they play, so it can land
+  independently of the provider layer.
 
-## Open questions / to verify before step 3
+## Verified — June 2026
 
-- Confirm current MusicKit on the Web terms (still Beta?) and that full-song
-  playback requires an active Apple Music subscription per listener.
-- **Evaluate the Apple Music search API vs. Spotify's** before committing to the
-  catalog-source switch above — relevance, latency, ISRC coverage, rate limits.
+Catalog/search comparison that settles the decision above:
+
+- **Spotify degraded itself (Feb 2026 Web API changes).** Dev Mode now caps at
+  **5 users/app** (was 25) and requires the owner to have Premium; **search
+  `limit` max dropped 50 → 10**; `GET /artists/{id}/top-tracks`, batch
+  `GET /tracks`/`GET /albums`, and browse/new-releases/categories were removed;
+  track `popularity`/`available_markets`/`linked_from` removed. `external_ids`
+  (ISRC) was removed then **reverted in March 2026** — still available.
+- **Apple Music search is now the stronger source.** `term`/`types`/`limit`
+  (up to **25**, default 5)/`offset`; rate limit **20 req/sec per user** (flat,
+  not dev/prod-gated). 25-result search vs Spotify's new 10.
+- **Apple batch ISRC lookup is purpose-built for `resolveTrack`.** "Get Multiple
+  Catalog Songs by ISRC": `GET /v1/catalog/{storefront}/songs?filter[isrc]=…`,
+  **up to 25 ISRCs comma-separated per request** → one round-trip resolves a
+  whole queue. Requires a storefront param.
+
+MusicKit on the Web: subscription requirement confirmed (see "Known costs");
+beta status could not be re-verified (client-rendered docs) — confirm by eye.
+
+## Feb 2026 Spotify impact on the existing app — checked, code is clear
+
+Checked whether the Feb 2026 removals broke the live app. **They didn't:**
+
+- Artist top-tracks uses `/search` (`confect/spotify/artists.ts:83`), **not** the
+  removed `/artists/{id}/top-tracks` endpoint.
+- All `/search` calls already request ≤ 10 results (`search.ts` uses 6 and 10;
+  artist-tracks uses 10), so the new search cap of 10 truncates nothing.
+- No use of the other removed endpoints — batch `GET /tracks`/`GET /albums`,
+  `/browse/*`, `GET /users/{id}`. (The one `/albums/{id}/tracks` call is the
+  single-album listing, which was not removed.)
+
+The only real Feb 2026 impact is operational: **Dev Mode now caps at 5
+users/app** and requires the owner to have Premium. That's not a code bug — it's
+the core reason for this whole migration.

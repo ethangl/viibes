@@ -2,6 +2,7 @@ import { Spec } from "@confect/core";
 
 import { lastfm } from "./lastfm.spec";
 import { musicbrainz } from "./musicbrainz.spec";
+import { playback } from "./playback.spec";
 import { profile } from "./profile.spec";
 import { roomPresence } from "./roomPresence.spec";
 import { rooms } from "./rooms.spec";
@@ -15,6 +16,7 @@ export default Spec.make()
   .add(spotify)
   .add(rooms)
   .add(roomPresence)
+  .add(playback)
   .add(lastfm)
   .add(musicbrainz)
   .add(users)

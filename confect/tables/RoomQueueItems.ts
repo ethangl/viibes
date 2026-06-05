@@ -11,6 +11,16 @@ export const RoomQueueItems = Table.make(
     // Canonical cross-service recording id. Optional: absent on pre-existing
     // rows and on tracks added from album context (simplified Spotify objects).
     isrc: Schema.optional(Schema.String),
+    // Per-provider resolution cache (ISRC → that provider's track id), shared
+    // across everyone in the room. A present string is the resolved id; null is
+    // a negative result (known-unavailable on that provider); an absent field
+    // means "not resolved yet". Written by `playback.resolveTrack`.
+    providerHints: Schema.optional(
+      Schema.Struct({
+        apple: Schema.optional(Schema.NullOr(Schema.String)),
+        spotify: Schema.optional(Schema.NullOr(Schema.String)),
+      }),
+    ),
     trackName: Schema.String,
     trackArtists: Schema.Array(Schema.String),
     trackImageUrl: Schema.optional(Schema.String),
