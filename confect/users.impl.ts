@@ -5,10 +5,10 @@ import api from "./_generated/api";
 import { DatabaseReader, DatabaseWriter } from "./_generated/services";
 
 /**
- * `users.upsert`, ported from the plain-Convex version to a native confect
- * Effect handler: the DB is reached via the `DatabaseReader`/`DatabaseWriter`
- * services rather than `ctx.db`. Infra failures (decode/encode) are folded to
- * defects with `orDie` — there's no user-facing failure mode here.
+ * `users.upsert`, a native confect Effect handler: the DB is reached via the
+ * `DatabaseReader`/`DatabaseWriter` services rather than `ctx.db`. Infra
+ * failures (decode/encode) are folded to defects with `orDie` — there's no
+ * user-facing failure mode here.
  */
 const upsert = FunctionImpl.make(
   api,

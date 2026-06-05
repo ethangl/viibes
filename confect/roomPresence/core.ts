@@ -13,8 +13,8 @@ import { RoomNotFound } from "../rooms/errors";
 import { RoomPresenceSessions } from "../tables/RoomPresenceSessions";
 
 /**
- * Native confect presence handlers, ported from the plain `confect/roomPresence.ts`.
- * The `@convex-dev/presence` component is driven through the raw Convex
+ * Native confect presence handlers. The `@convex-dev/presence` component is
+ * driven through the raw Convex
  * `MutationCtx` (its API needs `ctx`); our own `roomPresenceSessions` tracking
  * goes through `DatabaseReader`/`DatabaseWriter`. Reuses the native
  * `getVisibleRoomContext`/`insertRoomPresenceActivity` from `rooms/core`.

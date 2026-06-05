@@ -1,6 +1,5 @@
 import { Effect, Layer } from "effect";
 
-import { authComponent, createAuth } from "../../auth/betterAuth";
 import { SpotifyUnauthorized } from "../../auth-loop/errors";
 import {
   CoalescerLive,
@@ -8,13 +7,13 @@ import {
   SpotifyHttpLive,
   TokenSource,
 } from "../../auth-loop/services";
+import { authComponent, createAuth } from "../../auth/betterAuth";
 import { ActionCtx } from "../_generated/services";
 
 /**
  * Live `TokenSource` for the Spotify request loop: the per-user access token
- * from Better Auth (same path as ironman's `spotifySession.ts`). It needs the
- * caller's request context, so it captures confect's `ActionCtx` service at
- * layer construction.
+ * from Better Auth. It needs the caller's request context, so it captures
+ * confect's `ActionCtx` service at layer construction.
  *
  * `get` returns Better Auth's current access token (auto-refreshed only when it
  * considers the token expired). `refresh` forces an OAuth refresh-token
@@ -72,8 +71,7 @@ const TokenSourceFromBetterAuth = Layer.effect(
 
 /**
  * Everything `spotifyRequest` needs, minus `ActionCtx` (supplied by the confect
- * action runtime). Cooldown + coalescer are in-memory per invocation — matching
- * the best-effort module-level Maps in ironman's `spotify/client.ts`; durable
+ * action runtime). Cooldown + coalescer are in-memory per invocation — durable
  * read caching is the action-cache layer above, not this.
  */
 export const SpotifyLive = Layer.mergeAll(

@@ -4,7 +4,7 @@ import { Effect, Layer, Option } from "effect";
 import api from "./_generated/api";
 import { DatabaseReader } from "./_generated/services";
 
-/** `profile.get`, ported to a native confect Effect query over DatabaseReader. */
+/** `profile.get`, a native confect Effect query over DatabaseReader. */
 const get = FunctionImpl.make(
   api,
   "profile",

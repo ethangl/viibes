@@ -11,9 +11,9 @@ import { SpotifyAuthCooldowns } from "./tables/SpotifyAuthCooldowns";
 import { Users } from "./tables/Users";
 
 /**
- * The whole-database schema, ported from ironman's `convex/schema.ts`.
- * `confect codegen` reads this default export and regenerates
- * `convex/schema.ts` (which just re-exports `.convexSchemaDefinition`).
+ * The whole-database schema. `confect codegen` reads this default export and
+ * regenerates `convex/schema.ts` (which just re-exports
+ * `.convexSchemaDefinition`).
  */
 export default DatabaseSchema.make()
   .addTable(Users)

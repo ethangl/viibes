@@ -2,8 +2,8 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import { Schema } from "effect";
 
 /**
- * Ported from ironman's `convex/spotifyAuthCooldown.ts`. These are INTERNAL
- * functions: `convex/http.ts` calls `internal.spotifyAuthCooldown.get` and
+ * These are INTERNAL functions: `convex/http.ts` calls
+ * `internal.spotifyAuthCooldown.get` and
  * `auth/betterAuth.ts` calls `internal.spotifyAuthCooldown.set` via vanilla
  * `ctx.runQuery`/`ctx.runMutation`. Because those callers are plain Convex (not
  * confect clients), the return of `get` is `Schema.NullOr` (NOT `Schema.Option`)

@@ -7,7 +7,7 @@ import type {
   PlaybackState,
 } from "./types";
 
-// ── Pure helpers (ported verbatim) ───────────────────────────────────────────
+// ── Pure helpers ─────────────────────────────────────────────────────────────
 
 function getRetryAfterSeconds(response: Response) {
   const value = Number(response.headers.get("retry-after"));
@@ -77,7 +77,7 @@ const playbackResult = (
 // ── Playback commands (uncached, direct fetch). Effect wrappers that mirror the
 //    originals' "return a status object, swallow network errors" behavior. ─────
 
-/** Ported from `getCurrentlyPlaying`. Any failure → `{ status: 0, playback: null }`. */
+/** Any failure → `{ status: 0, playback: null }`. */
 export const getCurrentlyPlaying = (
   token: string,
 ): Effect.Effect<PlaybackCurrentlyPlayingResult> =>
@@ -110,7 +110,6 @@ export const getCurrentlyPlaying = (
     ),
   );
 
-/** Ported from `playUri`. */
 export const playUri = (
   uri: string,
   token: string,
@@ -134,7 +133,6 @@ export const playUri = (
     return playbackResult(res);
   });
 
-/** Ported from `resumePlayback`. */
 export const resumePlayback = (token: string): Effect.Effect<PlaybackResult> =>
   Effect.promise(async () => {
     const res = await fetch(`${SPOTIFY_API}/me/player/play`, {
@@ -151,7 +149,6 @@ const playbackCommandWithFallback = (
     Effect.catchAll(() => Effect.succeed<PlaybackResult>({ ok: false, status: 0 })),
   );
 
-/** Ported from `pausePlayback`. */
 export const pausePlayback = (token: string): Effect.Effect<PlaybackResult> =>
   playbackCommandWithFallback(() =>
     fetch(`${SPOTIFY_API}/me/player/pause`, {
@@ -160,7 +157,6 @@ export const pausePlayback = (token: string): Effect.Effect<PlaybackResult> =>
     }),
   );
 
-/** Ported from `setVolumePercent`. */
 export const setVolumePercent = (
   percent: number,
   token: string,
@@ -172,7 +168,6 @@ export const setVolumePercent = (
     }),
   );
 
-/** Ported from `setRepeatMode`. */
 export const setRepeatMode = (
   state: "track" | "context" | "off",
   token: string,

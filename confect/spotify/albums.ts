@@ -105,7 +105,7 @@ const getAlbumTracksFromDetails = (
       : tracks;
   });
 
-/** Ported from `getAlbum`. 404 → null (the album doesn't exist). */
+/** 404 → null (the album doesn't exist). */
 export const getAlbum = (albumId: string) =>
   fetchAlbumDetails(albumId).pipe(
     Effect.flatMap((data) => {
@@ -123,7 +123,7 @@ export const getAlbum = (albumId: string) =>
     ),
   );
 
-/** Ported from `getAlbumTracks`. Missing album → empty list. */
+/** Missing album → empty list. */
 export const getAlbumTracks = (albumId: string) =>
   fetchAlbumDetails(albumId).pipe(
     Effect.flatMap((data) =>

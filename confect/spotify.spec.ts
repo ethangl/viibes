@@ -19,8 +19,7 @@ import {
 } from "./spotify/schemas";
 
 /**
- * The Spotify group, ported from `convex/spotify.ts` + `convex/spotify/*`.
- * Each cached read is a PUBLIC action that delegates to the
+ * The Spotify group. Each cached read is a PUBLIC action that delegates to the
  * `@convex-dev/action-cache` component, which on a miss runs the matching
  * INTERNAL `load*` action. Internal actions run the pure-Effect request loop
  * (`auth-loop/`) with live layers. Playback commands are uncached.

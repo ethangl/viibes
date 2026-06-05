@@ -1,7 +1,7 @@
 import { Data } from "effect";
 
 /**
- * Typed errors for the Spotify request loop. In ironman these were all one
+ * Typed errors for the Spotify request loop. In viibes these were all one
  * `SpotifyApiError` (a JS class with a numeric `status`) that callers had to
  * `instanceof`-check and branch on. Here each failure mode is its own tagged
  * type, so the error channel tells you exactly what can go wrong and

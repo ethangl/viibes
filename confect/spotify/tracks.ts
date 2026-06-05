@@ -18,7 +18,7 @@ interface RecentlyPlayedResponse {
 }
 
 // Errors that survive after the rate-limit case is handled inline.
-// ── Pure cursor-page helpers (ported verbatim) ───────────────────────────────
+// ── Pure cursor-page helpers ─────────────────────────────────────────────────
 
 function parseSpotifyNumberCursor(value: string | null | undefined) {
   if (!value) return null;
@@ -57,7 +57,6 @@ function createEmptySpotifyCursorPage<TItem>(
 
 // ── Effect logic ─────────────────────────────────────────────────────────────
 
-/** Ported from `getRecentlyPlayedPage`. */
 export const getRecentlyPlayedPage = (
   limit = DEFAULT_LIMIT,
   before?: number | null,
@@ -82,9 +81,9 @@ export const getRecentlyPlayedPage = (
 };
 
 /**
- * Ported from `loadRecentlyPlayedResult`. A rate-limit (429 or active cooldown)
- * resolves to an empty page with `rateLimited: true` instead of failing — the
- * UI shows the flag. Other failures stay in the error channel.
+ * A rate-limit (429 or active cooldown) resolves to an empty page with
+ * `rateLimited: true` instead of failing — the UI shows the flag. Other
+ * failures stay in the error channel.
  */
 export const loadRecentlyPlayedResult = (
   before: number | null,

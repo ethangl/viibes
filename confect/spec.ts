@@ -9,7 +9,7 @@ import { spotify } from "./spotify.spec";
 import { spotifyAuthCooldown } from "./spotifyAuthCooldown.spec";
 import { users } from "./users.spec";
 
-/** Master spec — `confect codegen` reads this default export. All groups ported. */
+/** Master spec — `confect codegen` reads this default export. */
 export default Spec.make()
   .add(spotifyAuthCooldown)
   .add(spotify)

@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 /**
- * Effect-Schema ports of ironman's `convex/spotify/validators.ts`. These are
+ * Effect-Schema ports of viibes's `convex/spotify/validators.ts`. These are
  * the `returns` schemas for the confect spotify actions. Translation rules:
  * `v.object`→`Schema.Struct`, `v.union(x, v.null())`→`Schema.NullOr`,
  * `v.array`→`mutArray`, `v.optional`→`Schema.optional`.

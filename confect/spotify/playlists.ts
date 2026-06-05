@@ -38,7 +38,6 @@ interface PlaylistTracksResponse {
   }[];
 }
 
-/** Ported from `getUserPlaylists`. */
 export const getUserPlaylists = (
   limit = DEFAULT_LIMIT,
   offset = DEFAULT_OFFSET,
@@ -59,7 +58,7 @@ export const getUserPlaylists = (
     }),
   );
 
-/** Ported from `getPlaylist`. 404 → null. */
+/** 404 → null. */
 export const getPlaylist = (playlistId: string) =>
   spotifyRequest<SpotifyApiPlaylist>(
     `/playlists/${playlistId}?fields=id,name,description,images,owner(display_name),public,tracks(total)`,
@@ -74,7 +73,6 @@ export const getPlaylist = (playlistId: string) =>
     ),
   );
 
-/** Ported from `getPlaylistTracks`. */
 export const getPlaylistTracks = (playlistId: string) =>
   spotifyRequest<PlaylistTracksResponse>(
     `/playlists/${playlistId}/items?limit=100`,

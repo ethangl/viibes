@@ -47,8 +47,8 @@ export class SpotifyHttp extends Context.Tag("SpotifyHttp")<
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
 /**
- * Per-request log line, ported from ironman's `spotify/client.ts`. AGENTS.md
- * relies on this to spot 429s in ordinary usage ("if we are seeing Spotify
+ * Per-request log line. AGENTS.md relies on this to spot 429s in ordinary
+ * usage ("if we are seeing Spotify
  * 429s ... the query design is wrong"), so the boundary must surface
  * status + retry-after. Skipped under test to keep output quiet.
  */
@@ -180,7 +180,7 @@ export const CooldownInMemory = Layer.effect(
 
 /**
  * Coalesces concurrent calls sharing a key onto one in-flight effect, dropping
- * the entry once it settles (so a later call re-runs). Replaces ironman's
+ * the entry once it settles (so a later call re-runs). Replaces viibes's
  * `runDedupedGetRequest` Map-of-promises with `Ref.modify` (atomic
  * check-and-claim) + `Deferred` (the shared result) + `onExit` (cleanup).
  */
@@ -228,7 +228,7 @@ export const CoalescerLive = Layer.effect(
         );
 
         if (!decision.lead) {
-          return yield* (Deferred.await(decision.d) as Effect.Effect<A, E>);
+          return yield* Deferred.await(decision.d) as Effect.Effect<A, E>;
         }
 
         return yield* effect.pipe(

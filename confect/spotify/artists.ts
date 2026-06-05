@@ -80,7 +80,6 @@ function getSpotifyNextArtistCursor(next: string | null | undefined) {
   }
 }
 
-/** Ported from `searchArtistTracks`. */
 const searchArtistTracks = (
   artistId: string,
   artistName: string,
@@ -117,19 +116,16 @@ const searchArtistTracks = (
   );
 };
 
-/** Ported from `getSpotifyProfileMarket`. */
 export const getSpotifyProfileMarket = () =>
   spotifyRequest<{ country?: string }>("/me").pipe(
     Effect.map((data) => data?.country ?? null),
   );
 
-/** Ported from `getTopArtists`. */
 export const getTopArtists = (limit = 20) =>
   spotifyRequest<TopArtistsResponse>(`/me/top/artists?limit=${limit}`).pipe(
     Effect.map((data): SpotifyArtist[] => (data?.items ?? []).map(mapArtist)),
   );
 
-/** Ported from `getFavoriteArtists`. */
 export const getFavoriteArtists = (limit = 50, after?: string | null) => {
   const params = new URLSearchParams({ type: "artist", limit: String(limit) });
   if (after) params.set("after", after);
@@ -153,7 +149,6 @@ export const getFavoriteArtists = (limit = 50, after?: string | null) => {
   );
 };
 
-/** Ported from `getArtistReleasesPage`. */
 export const getArtistReleasesPage = (
   artistId: string,
   includeGroups: SpotifyArtistReleaseGroup,
@@ -180,7 +175,7 @@ export const getArtistReleasesPage = (
   );
 };
 
-/** Ported from `getArtistReleasesResult`. Soft errors → empty page + fallback. */
+/** Soft errors → empty page + fallback. */
 const getArtistReleasesResult = (
   artistId: string,
   includeGroups: SpotifyArtistReleaseGroup,
@@ -200,7 +195,6 @@ const getArtistReleasesResult = (
     ),
   );
 
-/** Ported from `getArtistPageDataResult`. */
 export const getArtistPageDataResult = (
   artistId: string,
   market?: string | null,
@@ -244,11 +238,11 @@ export const getArtistPageDataResult = (
     };
   });
 
-/** Ported from `getArtistPageData` — the `.page` of the result. */
+/** The `.page` of the result. */
 export const getArtistPageData = (artistId: string, market?: string | null) =>
   getArtistPageDataResult(artistId, market).pipe(Effect.map((r) => r.page));
 
-/** Ported from `getArtistPageMarket`. Soft errors → null market. */
+/** Soft errors → null market. */
 export const getArtistPageMarket = () =>
   getSpotifyProfileMarket().pipe(
     Effect.catchIf(isSoftReleaseError, () =>

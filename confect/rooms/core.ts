@@ -32,8 +32,8 @@ import {
  * yield their `QueryCtx`/`MutationCtx` service and pass it to `requireRoomAuth`.
  * Read helpers fold their infra errors (decode/index) to defects with `orDie`,
  * so the only typed error that escapes is the intentional `Unauthorized`.
- * Snapshot builders are pure (ported verbatim, with array copies since confect
- * `Doc` arrays are `readonly` while the return schemas are mutable).
+ * Snapshot builders are pure (with array copies since confect `Doc` arrays are
+ * `readonly` while the return schemas are mutable).
  */
 export type RoomCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
 
@@ -138,7 +138,7 @@ function hasStartedRoomPlayback(
   );
 }
 
-// Pure playback projection — ported verbatim from the plain `confect/rooms.ts`.
+// Pure playback projection.
 export function resolveRoomPlaybackProjection(
   queueItems: readonly RoomQueueItemDoc[],
   playbackState: Pick<

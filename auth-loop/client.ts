@@ -43,7 +43,7 @@ const parseBody = <T>(res: SpotifyResponse): T | null => {
 };
 
 /**
- * The Spotify request loop. Compare to ironman's `spotifyFetch`: the same
+ * The Spotify request loop. Compare to viibes's `spotifyFetch`: the same
  * behaviors (cooldown gate, 429 → set cooldown, JSON tolerance, GET dedupe)
  * plus the auth loop the original delegated elsewhere (401 → refresh → retry)
  * and transient-error backoff — all expressed declaratively in the error
@@ -130,7 +130,7 @@ export const spotifyRequest = <T = unknown>(
   });
 
 /**
- * Like ironman's `spotifyFetchOptional`: swallow any failure and return a
+ * Like viibes's `spotifyFetchOptional`: swallow any failure and return a
  * fallback. Note the error channel becomes `never` — the type proves there's
  * nothing left to handle.
  */
@@ -138,11 +138,7 @@ export const spotifyRequestOptional = <T>(
   path: string,
   fallback: T,
   options: RequestOptions = {},
-): Effect.Effect<
-  T,
-  never,
-  SpotifyHttp | TokenSource | Cooldown | Coalescer
-> =>
+): Effect.Effect<T, never, SpotifyHttp | TokenSource | Cooldown | Coalescer> =>
   spotifyRequest<T>(path, options).pipe(
     Effect.map((value) => value ?? fallback),
     Effect.catchAll(() => Effect.succeed(fallback)),

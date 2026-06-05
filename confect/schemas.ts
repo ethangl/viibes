@@ -1,8 +1,7 @@
 import { Schema } from "effect";
 
 /**
- * Shared literal-union schemas, ported from the validators at the top of
- * ironman's `convex/schema.ts`. Reused by both table definitions and function
+ * Shared literal-union schemas. Reused by both table definitions and function
  * specs (args/returns), so they live in one place.
  */
 export const RoomVisibility = Schema.Literal("public", "private");

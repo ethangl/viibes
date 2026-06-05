@@ -16,7 +16,6 @@ interface SearchResponse {
   artists?: { items?: Array<SpotifyApiArtist | null> };
 }
 
-/** Ported from `searchSpotify` in `convex/spotify/search.ts`. */
 export const searchSpotify = (query: string) =>
   spotifyRequest<SearchResponse>(
     `/search?q=${encodeURIComponent(query)}&type=track,artist&limit=6`,
@@ -33,7 +32,6 @@ export const searchSpotify = (query: string) =>
     ),
   );
 
-/** Ported from `searchTracksByName` in `convex/spotify/search.ts`. */
 export const searchTracksByName = (query: string) =>
   spotifyRequest<SearchResponse>(
     `/search?q=${encodeURIComponent(query)}&type=track&limit=10`,

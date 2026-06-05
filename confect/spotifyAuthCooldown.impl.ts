@@ -5,7 +5,7 @@ import api from "./_generated/api";
 import { DatabaseReader, DatabaseWriter } from "./_generated/services";
 
 /**
- * Implementations for the internal cooldown functions. Mirrors ironman's
+ * Implementations for the internal cooldown functions. Mirrors viibes's
  * `convex/spotifyAuthCooldown.ts`. DB failures are folded to defects with
  * `Effect.orDie` (these functions declare no typed error channel).
  */
@@ -62,18 +62,22 @@ const get = FunctionImpl.make(api, "spotifyAuthCooldown", "get", ({ key }) =>
   }).pipe(Effect.orDie),
 );
 
-const clear = FunctionImpl.make(api, "spotifyAuthCooldown", "clear", ({ key }) =>
-  Effect.gen(function* () {
-    const writer = yield* DatabaseWriter;
-    const existing = yield* findByKey(key);
+const clear = FunctionImpl.make(
+  api,
+  "spotifyAuthCooldown",
+  "clear",
+  ({ key }) =>
+    Effect.gen(function* () {
+      const writer = yield* DatabaseWriter;
+      const existing = yield* findByKey(key);
 
-    yield* Option.match(existing, {
-      onNone: () => Effect.void,
-      onSome: (doc) => writer.table("spotifyAuthCooldowns").delete(doc._id),
-    });
+      yield* Option.match(existing, {
+        onNone: () => Effect.void,
+        onSome: (doc) => writer.table("spotifyAuthCooldowns").delete(doc._id),
+      });
 
-    return null;
-  }).pipe(Effect.orDie),
+      return null;
+    }).pipe(Effect.orDie),
 );
 
 export const spotifyAuthCooldown = GroupImpl.make(
