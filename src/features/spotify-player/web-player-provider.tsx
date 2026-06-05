@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppAuth, useAppCapabilities } from "@/app/app-runtime";
-import { useAuthenticatedSession } from "@/app/require-authenticated-session";
 import type { Track } from "@/features/spotify-client/types";
+import { useAuthenticatedSession } from "@/hooks/use-authenticated-session";
 import { usePalette } from "../palette/use-palette";
 import { useSpotify } from "../spotify-sdk/use-spotify";
 import { usePlayerPlayback } from "./use-player-playback";
