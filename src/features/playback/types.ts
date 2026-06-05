@@ -1,0 +1,33 @@
+import type { Track } from "@/features/spotify-client/types";
+
+/**
+ * Provider-neutral track identity. Today this is the existing `Track` (which now
+ * carries `isrc` from step 1); `id` is the *provider* track id. When a second
+ * provider lands (step 3), resolution from the canonical `isrc` to a
+ * provider-specific id happens server-side before a track reaches the provider.
+ */
+export type CanonicalTrack = Track;
+
+/** Normalized view of a provider's local player. */
+export interface PlaybackSnapshot {
+  /** The provider track id currently loaded, or null when nothing is loaded. */
+  trackKey: string | null;
+  paused: boolean;
+  positionMs: number;
+  durationMs: number;
+}
+
+/**
+ * The slice of a music provider that room sync drives. Deliberately narrow: it
+ * covers "play this track at this offset" and "toggle play/pause" plus a
+ * normalized snapshot — not the full player UI (queue, shuffle, browse), which
+ * stays provider-specific for now.
+ */
+export interface PlaybackProvider {
+  /** Start (or re-sync) local playback to `track` at `offsetMs`. */
+  syncTrack: (track: CanonicalTrack, offsetMs: number) => Promise<void>;
+  /** Toggle local play/pause. */
+  togglePlay: () => Promise<void>;
+  /** Normalized snapshot of the local player, or null when inactive. */
+  snapshot: PlaybackSnapshot | null;
+}

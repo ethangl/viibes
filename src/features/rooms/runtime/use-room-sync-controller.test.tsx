@@ -8,22 +8,20 @@ import { useRoomSyncController } from "./use-room-sync-controller";
 const syncTrack = vi.fn<(track: { id: string }, offsetMs?: number) => Promise<void>>();
 const togglePlay = vi.fn<() => Promise<void>>();
 
-let mockSdkState:
+let mockSnapshot:
   | {
-      duration: number;
+      durationMs: number;
       paused: boolean;
-      position: number;
-      trackId: string;
+      positionMs: number;
+      trackKey: string;
     }
   | null = null;
 
-vi.mock("@/features/spotify-player", () => ({
-  useWebPlayerActions: () => ({
+vi.mock("@/features/playback", () => ({
+  usePlaybackProvider: () => ({
     syncTrack,
     togglePlay,
-  }),
-  useWebPlayerState: () => ({
-    sdkState: mockSdkState,
+    snapshot: mockSnapshot,
   }),
 }));
 
@@ -129,11 +127,11 @@ describe("useRoomSyncController", () => {
     syncTrack.mockResolvedValue(undefined);
     togglePlay.mockReset();
     togglePlay.mockResolvedValue(undefined);
-    mockSdkState = {
-      duration: 180_000,
+    mockSnapshot = {
+      durationMs: 180_000,
       paused: false,
-      position: 30_000,
-      trackId: "track-1",
+      positionMs: 30_000,
+      trackKey: "track-1",
     };
   });
 

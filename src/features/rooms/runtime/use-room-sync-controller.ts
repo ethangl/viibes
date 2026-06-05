@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  useWebPlayerActions,
-  useWebPlayerState,
-} from "@/features/spotify-player";
+import { usePlaybackProvider } from "@/features/playback";
 import type { RoomDetails, RoomSyncState } from "../client/room-types";
 import { toRoomTrack } from "../client/room-utils";
 import { getRoomSyncState, type ResolvedRoomPlayback } from "./room-sync";
@@ -25,8 +22,7 @@ export function useRoomSyncController({
   roomId,
   resolvedPlayback,
 }: UseRoomSyncControllerOptions): RoomSyncController {
-  const { syncTrack, togglePlay } = useWebPlayerActions();
-  const { sdkState } = useWebPlayerState();
+  const { syncTrack, togglePlay, snapshot } = usePlaybackProvider();
   const [syncNonce, setSyncNonce] = useState(0);
   const lastRequestedSyncKeyRef = useRef<string | null>(null);
   const previousRoomIdRef = useRef<string | null>(roomId);
@@ -39,8 +35,8 @@ export function useRoomSyncController({
   const startedAt = resolvedPlayback?.startedAt ?? null;
   const startOffsetMs = resolvedPlayback?.startOffsetMs ?? 0;
   const roomPaused = resolvedPlayback?.paused ?? false;
-  const sdkTrackId = sdkState?.trackId ?? null;
-  const sdkPaused = sdkState?.paused ?? true;
+  const localTrackKey = snapshot?.trackKey ?? null;
+  const localPaused = snapshot?.paused ?? true;
 
   const syncState = useMemo(
     () =>
@@ -59,13 +55,13 @@ export function useRoomSyncController({
     if (
       previousRoomIdRef.current &&
       !roomId &&
-      !sdkPaused
+      !localPaused
     ) {
       void togglePlay();
     }
 
     previousRoomIdRef.current = roomId;
-  }, [roomId, sdkPaused, togglePlay]);
+  }, [roomId, localPaused, togglePlay]);
 
   const runSyncToRoom = useCallback(async () => {
     if (
@@ -127,14 +123,17 @@ export function useRoomSyncController({
     if (
       !activeRoomId ||
       !currentTrackId ||
-      !sdkTrackId ||
-      sdkPaused ||
+      !localTrackKey ||
+      localPaused ||
       !roomPaused
     ) {
       return;
     }
 
-    if (sdkTrackId !== currentTrackId) {
+    // Identity match: for Spotify the provider track key IS the queue item's
+    // trackId. Step 3 (multi-provider) must compare against the *resolved*
+    // provider key for the current canonical track, not the raw trackId.
+    if (localTrackKey !== currentTrackId) {
       return;
     }
 
@@ -143,8 +142,8 @@ export function useRoomSyncController({
     activeRoomId,
     currentTrackId,
     roomPaused,
-    sdkPaused,
-    sdkTrackId,
+    localPaused,
+    localTrackKey,
     togglePlay,
   ]);
 

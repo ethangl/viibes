@@ -197,14 +197,26 @@ path.
 Each step leaves the app fully working. Steps 1–2 are pure refactors and ship
 before MusicKit is involved at all.
 
-1. **Add `isrc` to the schema + capture it natively from Spotify.** Stop
-   discarding `external_ids.isrc` in `mapTrack`, plumb it through `SpotifyTrack`
-   → enqueue → the `roomQueueItems` row (optional field; album-track adds and
+1. ~~**Add `isrc` to the schema + capture it natively from Spotify.**~~ **DONE
+   (merged).** Stopped discarding `external_ids.isrc` in `mapTrack`, plumbed it
+   through `SpotifyTrack` → `SpotifyTrackSchema` (return boundary) → enqueue
+   args → the `roomQueueItems` row (optional field; album-track adds and
    pre-existing rows are left `undefined`). No MusicBrainz, no behavior change.
-   De-risks the data change in isolation. **← start here, stop for review.**
-2. **Extract `SpotifyProvider` behind the `PlaybackProvider` interface** and
-   route `useRoomSyncController` through it. Still Spotify-only, but pluggable —
-   proves the seam.
+2. ~~**Extract `SpotifyProvider` behind the `PlaybackProvider` interface** and
+   route `useRoomSyncController` through it.~~ **DONE (in working tree, not yet
+   merged).** New neutral `src/features/playback/` holds `PlaybackProvider`
+   (`syncTrack` / `togglePlay` / normalized `snapshot`), with
+   `useSpotifyPlaybackProvider` wrapping the existing web-player context and
+   `usePlaybackProvider` selecting it. `useRoomSyncController` now imports only
+   `@/features/playback` — no Spotify import. Web-player context and the broader
+   player UI (queue/shuffle/browse) untouched. No behavior change.
+
+   **Carry-forward for step 3:** the controller's identity check
+   (`localTrackKey !== currentTrackId`) currently works because the Spotify
+   provider key equals the queue item's `trackId`. With a second provider it
+   must compare against the *resolved* provider key for the current canonical
+   track (the server-side `resolveTrack` result), not the raw `trackId`. Marked
+   with a comment at the comparison site.
 3. **Add `AppleMusicProvider` (MusicKit JS)** plus per-user provider
    connection/selection and the unavailable-track UX.
 
