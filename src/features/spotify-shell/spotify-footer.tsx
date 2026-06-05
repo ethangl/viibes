@@ -1,5 +1,6 @@
+import { LogOutIcon } from "lucide-react";
+
 import { useAppAuth } from "@/app/app-runtime";
-import { useAuthenticatedSession } from "@/app/require-authenticated-session";
 import { Avatar } from "@/components/avatar";
 import { SidebarFooter } from "@/components/sidebar";
 import {
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ClearSpotifyCacheButton } from "@/features/spotify-shell/clear-spotify-cache-button";
-import { LogOutIcon } from "lucide-react";
+import { useAuthenticatedSession } from "@/hooks/use-authenticated-session";
 
 export function SpotifyFooter() {
   const session = useAuthenticatedSession();
