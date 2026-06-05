@@ -6,45 +6,39 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { LoginButton } from "@/features/auth";
 import { useAppCapabilities } from "./app-runtime";
 
 export function ReconnectDialog() {
   const { spotifyConnection } = useAppCapabilities();
 
-  const canBrowsePersonalSpotify = spotifyConnection === "connected";
-  const isCheckingSpotifyConnection = spotifyConnection === "unknown";
+  // if (spotifyConnection === "connected") {
+  //   return null;
+  // }
+
+  if (spotifyConnection === "unknown") {
+    return (
+      <div className="fixed bg-background/90 duration-555 flex items-center justify-center left-1/2 rounded-2xl size-8 starting:opacity-0 top-1/2 transition-opacity -translate-x-1/2 -translate-y-1/2 z-100">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
-    <AlertDialog open={!canBrowsePersonalSpotify}>
+    <AlertDialog open={spotifyConnection !== "disconnected"}>
       <AlertDialogContent>
-        {isCheckingSpotifyConnection ? (
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Checking your Spotify connection
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Your app session is active. We&apos;re confirming Spotify access
-              before we turn on personal activity and playback controls.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-        ) : (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Reconnect Spotify to restore personal features
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Your app session is still active, but Spotify access is
-                unavailable right now. Reconnecting should bring back recent
-                plays, playlists, and playback controls.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <LoginButton />
-            </AlertDialogFooter>
-          </>
-        )}
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reconnect Spotify</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your app session is still active, but Spotify access is unavailable.
+            Reconnecting should bring back recent plays, playlists, and playback
+            controls.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <LoginButton />
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
