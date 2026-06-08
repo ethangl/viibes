@@ -48,11 +48,16 @@ export function SpotifyActivity() {
       <SidebarContent>
         {/* Interim entry to the Apple Music library (parity build); folds into
             the Apple home dashboard when the shell rework lands. */}
-        <div className="px-4 pt-2">
+        <div className="flex flex-wrap gap-2 px-4 pt-2">
           <Button
             size="xs"
             nativeButton={false}
             render={<AppLink href="/apple-playlists">Apple Music Playlists →</AppLink>}
+          />
+          <Button
+            size="xs"
+            nativeButton={false}
+            render={<AppLink href="/apple-recent">Apple Music Recently Played →</AppLink>}
           />
         </div>
         <Playlists

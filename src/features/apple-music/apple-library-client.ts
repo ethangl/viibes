@@ -106,6 +106,8 @@ interface LibrarySongResource {
 
 interface CatalogSongResource {
   id: string;
+  /** "songs" for catalog songs; recently-played can also include music-videos. */
+  type?: string;
   attributes?: {
     name?: string;
     artistName?: string;
@@ -175,4 +177,21 @@ export async function getAppleLibraryPlaylistTracks(
   return catalogIds
     .map((catalogId) => byId.get(catalogId))
     .filter((track): track is SpotifyTrack => track !== undefined);
+}
+
+/**
+ * The listener's recently-played tracks. Unlike library playlists, this endpoint
+ * returns catalog song resources directly — they already carry ISRC + clean
+ * metadata, so no catalog batch is needed. `types: "songs"` filters out
+ * music-videos; we re-check `type` defensively before mapping.
+ */
+export async function getAppleRecentlyPlayed(): Promise<SpotifyTrack[]> {
+  const music = getInstance();
+  if (!music) return [];
+  const response = await music.api.music<
+    MusicKitResponse<ResourceList<CatalogSongResource>>
+  >("/v1/me/recent/played/tracks", { limit: 30, types: "songs" });
+  return (response.data?.data ?? [])
+    .filter((resource) => resource.type === undefined || resource.type === "songs")
+    .map(mapCatalogSong);
 }
