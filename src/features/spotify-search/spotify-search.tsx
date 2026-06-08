@@ -39,14 +39,14 @@ export function SpotifySearch() {
         <CommandInput
           value={query}
           onValueChange={setQuery}
-          placeholder="Search Spotify for songs or artists..."
+          placeholder="Search Apple Music for songs..."
         />
         <CommandList className="max-h-[60vh]">
           {loading && (
             <CommandGroup>
               <CommandItem disabled>
                 <Spinner />
-                Searching Spotify...
+                Searching Apple Music...
               </CommandItem>
             </CommandGroup>
           )}

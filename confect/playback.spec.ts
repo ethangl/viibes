@@ -19,6 +19,17 @@ const QueueItemResolutionInputs = Schema.Struct({
   providerHints: ProviderHints,
 });
 
+/** An Apple catalog song, shaped so the client can enqueue it as-is. */
+const CatalogTrack = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  artist: Schema.String,
+  albumName: Schema.String,
+  albumImage: Schema.NullOr(Schema.String),
+  durationMs: Schema.Number,
+  isrc: Schema.NullOr(Schema.String),
+});
+
 /**
  * Server-side track resolution. `resolveTrack` turns a queue item + a provider
  * into that provider's track id (or null when unavailable), caching the result
@@ -62,5 +73,14 @@ export const playback = GroupSpec.make("playback")
       name: "appleDeveloperToken",
       args: Schema.Struct({}),
       returns: Schema.NullOr(Schema.String),
+    }),
+  )
+  .addFunction(
+    // Free-text Apple catalog song search (developer token only — no per-user
+    // connection needed), used to add tracks to a room queue.
+    FunctionSpec.publicAction({
+      name: "searchCatalog",
+      args: Schema.Struct({ query: Schema.String }),
+      returns: Schema.Struct({ tracks: Schema.Array(CatalogTrack) }),
     }),
   );

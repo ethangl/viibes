@@ -8,9 +8,12 @@ import {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
+import { useAction } from "convex/react";
 
-import { getAuthenticatedSpotifyConvexClient } from "@/features/spotify-client/spotify-convex-client";
-import type { SpotifySearchResults } from "@/features/spotify-client/types";
+import type {
+  SpotifySearchResults,
+  SpotifyTrack,
+} from "@/features/spotify-client/types";
 import { useDebounce } from "@/hooks/use-debounce";
 import { api } from "@api";
 
@@ -18,6 +21,30 @@ const EMPTY_RESULTS: SpotifySearchResults = {
   tracks: [],
   artists: [],
 };
+
+interface CatalogTrack {
+  id: string;
+  name: string;
+  artist: string;
+  albumName: string;
+  albumImage: string | null;
+  durationMs: number;
+  isrc: string | null;
+}
+
+/** Map an Apple catalog song onto the track shape the queue/UI consume. */
+function toTrack(song: CatalogTrack): SpotifyTrack {
+  return {
+    id: song.id,
+    name: song.name,
+    artist: song.artist,
+    albumName: song.albumName,
+    albumImage: song.albumImage,
+    durationMs: song.durationMs,
+    // exactOptionalPropertyTypes: omit `isrc` entirely rather than set undefined.
+    ...(song.isrc ? { isrc: song.isrc } : {}),
+  };
+}
 
 type SearchState = {
   error: string | null;
@@ -51,6 +78,7 @@ export function useSearch() {
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const searchCatalog = useAction(api.playback.searchCatalog);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState(IDLE_SEARCH_STATE);
@@ -85,21 +113,18 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       results: EMPTY_RESULTS,
     });
 
-    void getAuthenticatedSpotifyConvexClient()
-      .then((client) =>
-        client.action(api.spotify.search, {
-          query: trimmedQuery,
-        }),
-      )
+    void searchCatalog({ query: trimmedQuery })
       .then((nextResults) => {
         if (cancelled) {
           return;
         }
 
+        // Apple catalog search returns songs only; the artist row stays empty
+        // until/if we add Apple artist search.
         setSearchState({
           error: null,
           loading: false,
-          results: nextResults,
+          results: { tracks: nextResults.tracks.map(toTrack), artists: [] },
         });
       })
       .catch((nextError) => {
@@ -111,7 +136,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
           error:
             nextError instanceof Error
               ? nextError.message
-              : "Could not search Spotify right now.",
+              : "Could not search Apple Music right now.",
           loading: false,
           results: EMPTY_RESULTS,
         });
@@ -120,7 +145,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [canSearch, trimmedQuery]);
+  }, [canSearch, searchCatalog, trimmedQuery]);
 
   const value = useMemo(
     () => ({
