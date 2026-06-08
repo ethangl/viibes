@@ -8,7 +8,7 @@ import { Effect, Layer, Option } from "effect";
 import type { Id } from "../convex/_generated/dataModel";
 import api from "./_generated/api";
 import { ActionCtx, DatabaseReader, DatabaseWriter } from "./_generated/services";
-import { lookupAppleSongIdByIsrc } from "./applemusic/catalog";
+import { lookupAppleSongIdByIsrc, searchAppleCatalog } from "./applemusic/catalog";
 import {
   chooseResolution,
   type PlaybackProviderId,
@@ -107,51 +107,57 @@ const resolveTrack = FunctionImpl.make(
   ({ queueItemId, provider }) =>
     Effect.gen(function* () {
       const ctx = yield* ActionCtx;
-      return yield* Effect.tryPromise(async () => {
-        await requireIdentity(ctx);
+      yield* Effect.tryPromise(() => requireIdentity(ctx));
 
-        const inputs = await ctx.runQuery(inputsRef, { queueItemId });
-        if (!inputs) return null;
+      const inputs = yield* Effect.tryPromise(() =>
+        ctx.runQuery(inputsRef, { queueItemId }),
+      );
+      if (!inputs) return null;
 
-        const decision = chooseResolution(provider, {
-          isrc: inputs.isrc,
-          trackId: inputs.trackId,
-          hints: inputs.providerHints,
-        });
+      const decision = chooseResolution(provider, {
+        isrc: inputs.isrc,
+        trackId: inputs.trackId,
+        hints: inputs.providerHints,
+      });
 
-        switch (decision.kind) {
-          case "cached":
-            return decision.providerTrackId;
-          case "resolved":
-            await ctx.runMutation(cacheRef, {
+      switch (decision.kind) {
+        case "cached":
+          return decision.providerTrackId;
+        case "resolved":
+          yield* Effect.tryPromise(() =>
+            ctx.runMutation(cacheRef, {
               queueItemId,
               provider,
               providerTrackId: decision.providerTrackId,
-            });
-            return decision.providerTrackId;
-          case "unavailable":
-            await ctx.runMutation(cacheRef, {
+            }),
+          );
+          return decision.providerTrackId;
+        case "unavailable":
+          yield* Effect.tryPromise(() =>
+            ctx.runMutation(cacheRef, {
               queueItemId,
               provider,
               providerTrackId: null,
-            });
-            return null;
-          case "needsAppleFetch": {
-            const { configured, songId } = await lookupAppleSongIdByIsrc(
-              decision.isrc,
-            );
-            // Don't poison the cache with a null before credentials exist —
-            // only persist a real (configured) lookup result.
-            if (!configured) return null;
-            await ctx.runMutation(cacheRef, {
+            }),
+          );
+          return null;
+        case "needsAppleFetch": {
+          const { configured, songId } = yield* lookupAppleSongIdByIsrc(
+            decision.isrc,
+          );
+          // Don't poison the cache with a null before credentials exist —
+          // only persist a real (configured) lookup result.
+          if (!configured) return null;
+          yield* Effect.tryPromise(() =>
+            ctx.runMutation(cacheRef, {
               queueItemId,
               provider: "apple",
               providerTrackId: songId,
-            });
-            return songId;
-          }
+            }),
+          );
+          return songId;
         }
-      });
+      }
     }).pipe(Effect.orDie),
 );
 
@@ -169,9 +175,25 @@ const appleDeveloperToken = FunctionImpl.make(
     }).pipe(Effect.orDie),
 );
 
+const searchCatalog = FunctionImpl.make(
+  api,
+  "playback",
+  "searchCatalog",
+  ({ query }) =>
+    Effect.gen(function* () {
+      const ctx = yield* ActionCtx;
+      yield* Effect.tryPromise(() => requireIdentity(ctx));
+      const trimmed = query.trim();
+      if (!trimmed) return { tracks: [] };
+      const tracks = yield* searchAppleCatalog(trimmed);
+      return { tracks };
+    }).pipe(Effect.orDie),
+);
+
 export const playback = GroupImpl.make(api, "playback").pipe(
   Layer.provide(queueItemResolutionInputs),
   Layer.provide(cacheProviderHint),
   Layer.provide(resolveTrack),
   Layer.provide(appleDeveloperToken),
+  Layer.provide(searchCatalog),
 );
