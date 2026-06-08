@@ -26,4 +26,15 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // Standalone Node CLI scripts (run directly with `node`).
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 );

@@ -11,6 +11,7 @@
 import type * as http from "../http.js";
 import type * as lastfm from "../lastfm.js";
 import type * as musicbrainz from "../musicbrainz.js";
+import type * as playback from "../playback.js";
 import type * as profile from "../profile.js";
 import type * as roomPresence from "../roomPresence.js";
 import type * as rooms from "../rooms.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   lastfm: typeof lastfm;
   musicbrainz: typeof musicbrainz;
+  playback: typeof playback;
   profile: typeof profile;
   roomPresence: typeof roomPresence;
   rooms: typeof rooms;

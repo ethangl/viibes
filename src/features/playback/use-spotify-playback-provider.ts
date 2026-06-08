@@ -29,7 +29,7 @@ export function useSpotifyPlaybackProvider(): PlaybackProvider {
   );
 
   return useMemo(
-    () => ({ syncTrack, togglePlay, snapshot }),
+    () => ({ id: "spotify" as const, syncTrack, togglePlay, snapshot }),
     [syncTrack, togglePlay, snapshot],
   );
 }

@@ -86,7 +86,12 @@ const cacheProviderHint = FunctionImpl.make(
       const item = yield* readQueueItem(queueItemId);
       if (Option.isNone(item)) return null;
 
-      const nextHints: ProviderHints = { ...(item.value.providerHints ?? {}) };
+      // Copy existing hints explicitly (a spread would carry `undefined`-valued
+      // optionals, which exactOptionalPropertyTypes rejects), then set ours.
+      const prev = item.value.providerHints;
+      const nextHints: ProviderHints = {};
+      if (prev?.spotify !== undefined) nextHints.spotify = prev.spotify;
+      if (prev?.apple !== undefined) nextHints.apple = prev.apple;
       nextHints[provider] = providerTrackId;
       yield* writer
         .table("roomQueueItems")
@@ -150,8 +155,23 @@ const resolveTrack = FunctionImpl.make(
     }).pipe(Effect.orDie),
 );
 
+const appleDeveloperToken = FunctionImpl.make(
+  api,
+  "playback",
+  "appleDeveloperToken",
+  () =>
+    Effect.gen(function* () {
+      const ctx = yield* ActionCtx;
+      return yield* Effect.tryPromise(async () => {
+        await requireIdentity(ctx);
+        return process.env.APPLE_MUSIC_DEVELOPER_TOKEN ?? null;
+      });
+    }).pipe(Effect.orDie),
+);
+
 export const playback = GroupImpl.make(api, "playback").pipe(
   Layer.provide(queueItemResolutionInputs),
   Layer.provide(cacheProviderHint),
   Layer.provide(resolveTrack),
+  Layer.provide(appleDeveloperToken),
 );

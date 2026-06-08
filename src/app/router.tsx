@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet } from "react-router-dom";
 
+import { AppleMusicProbe } from "@/features/apple-music/apple-music-probe";
 import { ArtistProvider } from "@/features/artist";
 import { Artist } from "@/features/artist/artist";
 import { Release } from "@/features/release/release";
@@ -23,6 +24,8 @@ export const router = createBrowserRouter([
             element: <AuthedLayout />,
             children: [
               { path: "home", element: <SpotifyActivity /> },
+              // Dev-only MusicKit verification harness (remove after 3-3).
+              { path: "dev/apple-music", element: <AppleMusicProbe /> },
               {
                 path: "artist/resolve/:musicBrainzArtistId",
                 element: <ArtistResolveRoute />,

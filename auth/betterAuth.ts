@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { anonymous } from "better-auth/plugins";
 import { createClient } from "@convex-dev/better-auth";
 import { isRunMutationCtx } from "@convex-dev/better-auth/utils";
 import { convex } from "@convex-dev/better-auth/plugins";
@@ -17,6 +18,22 @@ function requireEnv(name: string) {
   }
 
   return value;
+}
+
+/**
+ * Google is an optional identity provider until its OAuth client is configured;
+ * register it only when both env vars are present (`requireEnv` would otherwise
+ * throw and break startup before the client is set up).
+ */
+function googleProvider(): {
+  google?: { clientId: string; clientSecret: string };
+} {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+  return { google: { clientId, clientSecret } };
 }
 
 async function setSpotifyAuthCooldown(
@@ -78,12 +95,23 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
     trustedOrigins: [requireEnv("SITE_URL")],
     account: {
       accountLinking: {
-        trustedProviders: ["spotify"],
+        trustedProviders: ["spotify", "google"],
       },
+    },
+    // Identity is Google or email/password — never Apple (MusicKit grants
+    // playback, not identity) and never Spotify (kept only as a legacy playback
+    // connection). Email/password works without mail infra for now; verification
+    // and reset land when an email sender is wired.
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
     },
     plugins: [
       crossDomain({ siteUrl: requireEnv("SITE_URL") }),
       convex({ authConfig }),
+      // Guest sessions: join a room and listen with no account; upgrade to a
+      // Google/email account later to claim a username and create rooms.
+      anonymous(),
     ],
     socialProviders: {
       spotify: {
@@ -119,6 +147,7 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
           };
         },
       },
+      ...googleProvider(),
     },
   });
 

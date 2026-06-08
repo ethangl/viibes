@@ -3,13 +3,14 @@ import {
   crossDomainClient,
 } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import { anonymousClient } from "better-auth/client/plugins";
 
 import { getConvexSiteUrl } from "@/lib/convex-env";
 const SPOTIFY_AUTH_COOLDOWN_ENDPOINT = "/api/spotify-auth/cooldown";
 
 export const convexAuthClient = createAuthClient({
   baseURL: getConvexSiteUrl("Convex Better Auth"),
-  plugins: [convexClient(), crossDomainClient()],
+  plugins: [convexClient(), crossDomainClient(), anonymousClient()],
 });
 
 export async function convexLinkSocialAccount({

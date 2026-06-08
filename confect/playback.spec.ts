@@ -54,4 +54,13 @@ export const playback = GroupSpec.make("playback")
       }),
       returns: Schema.NullOr(Schema.String),
     }),
+  )
+  .addFunction(
+    // The Apple developer token MusicKit JS needs client-side to configure.
+    // Auth-gated so it isn't baked into the public bundle; null when unset.
+    FunctionSpec.publicAction({
+      name: "appleDeveloperToken",
+      args: Schema.Struct({}),
+      returns: Schema.NullOr(Schema.String),
+    }),
   );

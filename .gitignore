@@ -1,5 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Apple MusicKit private keys — never commit
+*.p8
+AuthKey_*.p8
+
 # dependencies
 /node_modules
 /.pnp
