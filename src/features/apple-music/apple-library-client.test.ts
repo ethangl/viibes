@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAppleLibraryPlaylists,
   getAppleLibraryPlaylistTracks,
+  getAppleRecentlyPlayed,
 } from "./apple-library-client";
 
 type MusicHandler = (
@@ -162,5 +163,51 @@ describe("getAppleLibraryPlaylistTracks", () => {
     expect(catalogCalls).toHaveLength(2);
     expect(String(catalogCalls[0][1]?.ids).split(",")).toHaveLength(100);
     expect(String(catalogCalls[1][1]?.ids).split(",")).toHaveLength(50);
+  });
+});
+
+describe("getAppleRecentlyPlayed", () => {
+  it("returns [] when MusicKit isn't available", async () => {
+    expect(await getAppleRecentlyPlayed()).toEqual([]);
+  });
+
+  it("maps catalog songs directly (ISRC preserved) and drops non-songs", async () => {
+    installMusicKit((path, params) => {
+      expect(path).toBe("/v1/me/recent/played/tracks");
+      expect(params).toEqual({ limit: 30, types: "songs" });
+      return {
+        data: {
+          data: [
+            {
+              id: "100",
+              type: "songs",
+              attributes: {
+                name: "Get Lucky",
+                artistName: "Daft Punk",
+                albumName: "Random Access Memories",
+                durationInMillis: 369_000,
+                isrc: "ISRC100",
+                artwork: { url: "https://art/{w}x{h}.jpg" },
+              },
+            },
+            { id: "mv1", type: "music-videos", attributes: { name: "Clip" } },
+          ],
+        },
+      };
+    });
+
+    const tracks = await getAppleRecentlyPlayed();
+
+    expect(tracks).toEqual([
+      {
+        id: "100",
+        name: "Get Lucky",
+        artist: "Daft Punk",
+        albumName: "Random Access Memories",
+        albumImage: "https://art/200x200.jpg",
+        durationMs: 369_000,
+        isrc: "ISRC100",
+      },
+    ]);
   });
 });
