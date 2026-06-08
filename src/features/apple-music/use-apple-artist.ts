@@ -2,19 +2,24 @@ import { api } from "@api";
 import { useAction } from "convex/react";
 import { useEffect, useState } from "react";
 
-export interface AppleArtistTrack {
+import type { AppleTrack } from "./apple-track";
+
+export type AppleArtistTrack = AppleTrack;
+
+/** An album or single in an artist's discography (the releases sections). */
+export interface AppleRelease {
   id: string;
   name: string;
-  artist: string;
-  albumName: string;
-  albumImage: string | null;
-  durationMs: number;
-  isrc: string | null;
+  image: string | null;
+  releaseDate: string | null;
+  trackCount: number;
 }
 
 export interface AppleArtistDetail {
   artist: { id: string; name: string; image: string | null };
   topSongs: readonly AppleArtistTrack[];
+  albums: readonly AppleRelease[];
+  singles: readonly AppleRelease[];
 }
 
 export type AppleArtistState =

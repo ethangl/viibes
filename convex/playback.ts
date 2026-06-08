@@ -1,5 +1,6 @@
 import registeredFunctions from "../confect/_generated/registeredFunctions";
 
+export const album = registeredFunctions.playback.album;
 export const appleDeveloperToken = registeredFunctions.playback.appleDeveloperToken;
 export const artist = registeredFunctions.playback.artist;
 export const cacheProviderHint = registeredFunctions.playback.cacheProviderHint;

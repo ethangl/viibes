@@ -1,101 +1,96 @@
-import { PlusIcon } from "lucide-react";
+import { CircleQuestionMarkIcon } from "lucide-react";
 import { useParams } from "react-router-dom";
 
-import { AlbumArt } from "@/components/album-art";
-import { MainContent } from "@/components/main";
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@/components/section";
+import { SidebarContent } from "@/components/sidebar";
 import { Spinner } from "@/components/ui/spinner";
-import { useOptionalRooms } from "@/features/rooms";
-import type { SpotifyTrack } from "@/features/spotify-client/types";
-import { useAppleArtist, type AppleArtistTrack } from "./use-apple-artist";
+import { ArtistLastFmOverview, Releases } from "@/features/artist";
+import { useLastFmArtist } from "@/features/artist/use-lastfm-artist";
+import type {
+  SpotifyAlbumRelease,
+  SpotifyPage,
+} from "@/features/spotify-client/types";
+import { SpotifyHeader } from "@/features/spotify-shell/spotify-header";
+import { Tracks } from "@/features/spotify-tracks";
+import { AppleArtistSimilar } from "./apple-artist-similar";
+import { toSpotifyTracks } from "./apple-track";
+import { useAppleArtist, type AppleRelease } from "./use-apple-artist";
 
-/** Apple catalog songs carry everything the queue needs; drop a null ISRC. */
-function toEnqueueable(song: AppleArtistTrack): SpotifyTrack {
+/** Adapt Apple releases to the `Releases` component's (paginated) Spotify shape. */
+function toReleasePage(
+  releases: readonly AppleRelease[],
+): SpotifyPage<SpotifyAlbumRelease> {
   return {
-    id: song.id,
-    name: song.name,
-    artist: song.artist,
-    albumName: song.albumName,
-    albumImage: song.albumImage,
-    durationMs: song.durationMs,
-    ...(song.isrc ? { isrc: song.isrc } : {}),
+    items: releases.map((release) => ({
+      id: release.id,
+      name: release.name,
+      image: release.image,
+      releaseDate: release.releaseDate,
+      totalTracks: release.trackCount,
+      albumType: null,
+    })),
+    offset: 0,
+    limit: releases.length,
+    total: releases.length,
+    nextOffset: null,
+    hasMore: false,
   };
 }
 
 export function AppleArtist() {
   const { artistId = "" } = useParams();
   const state = useAppleArtist(artistId);
-  const rooms = useOptionalRooms();
-  const activeRoom = rooms?.activeRoom ?? null;
-  const enqueueTrack = rooms?.enqueueTrack;
-  const canEnqueue = !!activeRoom?.playback.canEnqueue && !!enqueueTrack;
+
+  // Last.fm enrichment (bio + similar artists) is keyed on the artist's name, so
+  // it ports straight from the Spotify page; only meaningful once the artist loads.
+  const artistName = state.status === "ready" ? state.detail.artist.name : "";
+  const lastFmArtist = useLastFmArtist({ artistName, musicBrainzId: null });
 
   if (state.status === "loading") {
     return (
-      <div className="flex items-center justify-center py-32">
-        <Spinner className="h-8 w-8" />
-      </div>
+      <>
+        <SpotifyHeader href="/home" title={<Spinner />} />
+        <SidebarContent />
+      </>
     );
   }
 
   if (state.status === "not_found" || state.status === "error") {
     return (
-      <div className="py-32 text-center text-muted-foreground">
-        {state.status === "not_found"
-          ? "That artist could not be found on Apple Music."
-          : "Couldn’t load this artist. Try again."}
-      </div>
+      <>
+        <SpotifyHeader href="/home" title={<CircleQuestionMarkIcon />} />
+        <SidebarContent>
+          <p className="py-32 text-center text-muted-foreground">
+            {state.status === "not_found"
+              ? "That artist could not be found on Apple Music."
+              : "Couldn’t load this artist. Try again."}
+          </p>
+        </SidebarContent>
+      </>
     );
   }
 
-  const { artist, topSongs } = state.detail;
+  const { artist, topSongs, albums, singles } = state.detail;
 
   return (
-    <MainContent>
-      <Section>
-        <SectionHeader className="flex items-center gap-4">
-          <AlbumArt src={artist.image} className="size-16 rounded-full" />
-          <SectionTitle>{artist.name}</SectionTitle>
-        </SectionHeader>
-        <SectionContent className="space-y-1">
-          {topSongs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No top songs available.
-            </p>
-          ) : (
-            topSongs.map((song) => (
-              <button
-                key={song.id}
-                type="button"
-                disabled={!canEnqueue}
-                onClick={() => {
-                  if (!activeRoom?.playback.canEnqueue || !enqueueTrack) {
-                    return;
-                  }
-                  void enqueueTrack(toEnqueueable(song), activeRoom.room._id);
-                }}
-                className="group flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-white/5 disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                <AlbumArt src={song.albumImage} className="size-10" />
-                <div className="min-w-0 flex-auto space-y-1">
-                  <div className="truncate leading-tight">{song.name}</div>
-                  <div className="truncate text-xs leading-tight text-muted-foreground">
-                    {song.artist}
-                  </div>
-                </div>
-                {canEnqueue ? (
-                  <PlusIcon className="size-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                ) : null}
-              </button>
-            ))
-          )}
-        </SectionContent>
-      </Section>
-    </MainContent>
+    <>
+      <SpotifyHeader href="/home" title={artist.name} />
+      <SidebarContent>
+        <Tracks title="Top Tracks" tracks={toSpotifyTracks(topSongs)} />
+        <Releases
+          title="Singles"
+          page={toReleasePage(singles)}
+          hrefFor={(release) => `/apple-album/${release.id}`}
+        />
+        <Releases
+          title="Albums"
+          page={toReleasePage(albums)}
+          hrefFor={(release) => `/apple-album/${release.id}`}
+        />
+        <ArtistLastFmOverview artist={lastFmArtist} />
+        <AppleArtistSimilar
+          similarArtists={lastFmArtist?.similarArtists ?? []}
+        />
+      </SidebarContent>
+    </>
   );
 }

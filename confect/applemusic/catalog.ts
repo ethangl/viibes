@@ -138,10 +138,34 @@ export interface CatalogSearchResults {
   artists: CatalogArtist[];
 }
 
-/** An artist plus their top songs, for the catalog artist page. */
+/** An album or single in an artist's discography (the releases sections). */
+export interface CatalogRelease {
+  id: string;
+  name: string;
+  image: string | null;
+  releaseDate: string | null;
+  trackCount: number;
+}
+
+/** An artist plus their top songs and discography, for the catalog artist page. */
 export interface CatalogArtistDetail {
   artist: CatalogArtist;
   topSongs: CatalogTrack[];
+  albums: CatalogRelease[];
+  singles: CatalogRelease[];
+}
+
+/** An album plus its tracks, for the catalog album page. */
+export interface CatalogAlbumDetail {
+  album: {
+    id: string;
+    name: string;
+    artistName: string;
+    /** Primary artist's catalog id (back-navigation), or null when absent. */
+    artistId: string | null;
+    image: string | null;
+  };
+  tracks: CatalogTrack[];
 }
 
 /** A catalog song mapped to the provider-neutral track shape the queue uses. */
@@ -177,6 +201,27 @@ interface CatalogArtistResource {
   attributes?: {
     name?: string;
     artwork?: { url?: string };
+  };
+}
+
+interface CatalogAlbumResource {
+  id: string;
+  attributes?: {
+    name?: string;
+    artistName?: string;
+    releaseDate?: string;
+    trackCount?: number;
+    artwork?: { url?: string };
+  };
+}
+
+function mapCatalogRelease(album: CatalogAlbumResource): CatalogRelease {
+  return {
+    id: album.id,
+    name: album.attributes?.name ?? "(unknown)",
+    image: artworkUrl(album.attributes?.artwork?.url),
+    releaseDate: album.attributes?.releaseDate ?? null,
+    trackCount: album.attributes?.trackCount ?? 0,
   };
 }
 
@@ -271,12 +316,16 @@ export function getAppleArtist(
 
   const path = `/catalog/${storefront}/artists/${encodeURIComponent(
     artistId,
-  )}?views=top-songs`;
+  )}?views=top-songs,full-albums,singles`;
 
   return appleRequest<{
     data?: Array<
       CatalogArtistResource & {
-        views?: { "top-songs"?: { data?: CatalogSongResource[] } };
+        views?: {
+          "top-songs"?: { data?: CatalogSongResource[] };
+          "full-albums"?: { data?: CatalogAlbumResource[] };
+          singles?: { data?: CatalogAlbumResource[] };
+        };
       }
     >;
   }>(path, developerToken, fetchImpl).pipe(
@@ -288,6 +337,10 @@ export function getAppleArtist(
         topSongs: (resource.views?.["top-songs"]?.data ?? []).map(
           mapCatalogSong,
         ),
+        albums: (resource.views?.["full-albums"]?.data ?? []).map(
+          mapCatalogRelease,
+        ),
+        singles: (resource.views?.singles?.data ?? []).map(mapCatalogRelease),
       };
     }),
     Effect.tapError((error) =>
@@ -296,6 +349,57 @@ export function getAppleArtist(
           artistId,
           error,
         }),
+      ),
+    ),
+    Effect.catchAll(() => Effect.succeed(null)),
+  );
+}
+
+/**
+ * Fetch a catalog album plus its tracks (for the album page). Yields `null`
+ * when unconfigured, not found, or on failure — the caller renders a not-found
+ * state. Tracks ride along on the album's `tracks` relationship. Dev-token only.
+ */
+export function getAppleAlbum(
+  albumId: string,
+  config: AppleCatalogConfig = readAppleCatalogConfig(),
+): Effect.Effect<CatalogAlbumDetail | null> {
+  const { developerToken, storefront, fetchImpl } = config;
+  if (!developerToken) {
+    return Effect.succeed(null);
+  }
+
+  const path = `/catalog/${storefront}/albums/${encodeURIComponent(albumId)}`;
+
+  return appleRequest<{
+    data?: Array<
+      CatalogAlbumResource & {
+        relationships?: {
+          tracks?: { data?: CatalogSongResource[] };
+          artists?: { data?: { id?: string }[] };
+        };
+      }
+    >;
+  }>(path, developerToken, fetchImpl).pipe(
+    Effect.map((body): CatalogAlbumDetail | null => {
+      const resource = body.data?.[0];
+      if (!resource) return null;
+      return {
+        album: {
+          id: resource.id,
+          name: resource.attributes?.name ?? "(unknown)",
+          artistName: resource.attributes?.artistName ?? "",
+          artistId: resource.relationships?.artists?.data?.[0]?.id ?? null,
+          image: artworkUrl(resource.attributes?.artwork?.url),
+        },
+        tracks: (resource.relationships?.tracks?.data ?? []).map(
+          mapCatalogSong,
+        ),
+      };
+    }),
+    Effect.tapError((error) =>
+      Effect.sync(() =>
+        console.error("[apple-catalog] album fetch failed", { albumId, error }),
       ),
     ),
     Effect.catchAll(() => Effect.succeed(null)),

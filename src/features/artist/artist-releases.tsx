@@ -30,9 +30,16 @@ export type ReleasesProps = {
   page: SpotifyPage<SpotifyAlbumRelease>;
   paginate?: ReactNode;
   title: string;
+  /** Link target for a release cell. Defaults to the nested Spotify route. */
+  hrefFor?: (release: SpotifyAlbumRelease) => string;
 };
 
-export const Releases: FC<ReleasesProps> = ({ page, paginate, title }) => {
+export const Releases: FC<ReleasesProps> = ({
+  page,
+  paginate,
+  title,
+  hrefFor = (release) => `release/${release.id}`,
+}) => {
   const releases = page.items;
 
   if (releases.length === 0) {
@@ -50,7 +57,7 @@ export const Releases: FC<ReleasesProps> = ({ page, paginate, title }) => {
         {releases.map((release) => (
           <PlaylistCell
             key={release.id}
-            href={`release/${release.id}`}
+            href={hrefFor(release)}
             image={release.image}
             name={release.name}
             subtitle={formatReleaseMeta(release)}

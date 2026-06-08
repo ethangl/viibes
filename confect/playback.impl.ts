@@ -9,6 +9,7 @@ import type { Id } from "../convex/_generated/dataModel";
 import api from "./_generated/api";
 import { ActionCtx, DatabaseReader, DatabaseWriter } from "./_generated/services";
 import {
+  getAppleAlbum,
   getAppleArtist,
   lookupAppleSongIdByIsrc,
   searchAppleCatalog,
@@ -205,6 +206,18 @@ const artist = FunctionImpl.make(
     }).pipe(Effect.orDie),
 );
 
+const album = FunctionImpl.make(
+  api,
+  "playback",
+  "album",
+  ({ albumId }) =>
+    Effect.gen(function* () {
+      const ctx = yield* ActionCtx;
+      yield* Effect.tryPromise(() => requireIdentity(ctx));
+      return yield* getAppleAlbum(albumId);
+    }).pipe(Effect.orDie),
+);
+
 export const playback = GroupImpl.make(api, "playback").pipe(
   Layer.provide(queueItemResolutionInputs),
   Layer.provide(cacheProviderHint),
@@ -212,4 +225,5 @@ export const playback = GroupImpl.make(api, "playback").pipe(
   Layer.provide(appleDeveloperToken),
   Layer.provide(searchCatalog),
   Layer.provide(artist),
+  Layer.provide(album),
 );

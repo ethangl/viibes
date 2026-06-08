@@ -37,10 +37,33 @@ const CatalogArtist = Schema.Struct({
   image: Schema.NullOr(Schema.String),
 });
 
-/** An artist plus their top songs, for the catalog artist page. */
+/** An album or single in an artist's discography (the releases sections). */
+const CatalogRelease = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  image: Schema.NullOr(Schema.String),
+  releaseDate: Schema.NullOr(Schema.String),
+  trackCount: Schema.Number,
+});
+
+/** An artist plus their top songs and discography, for the catalog artist page. */
 const CatalogArtistDetail = Schema.Struct({
   artist: CatalogArtist,
   topSongs: Schema.Array(CatalogTrack),
+  albums: Schema.Array(CatalogRelease),
+  singles: Schema.Array(CatalogRelease),
+});
+
+/** An album plus its tracks, for the catalog album page. */
+const CatalogAlbumDetail = Schema.Struct({
+  album: Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    artistName: Schema.String,
+    artistId: Schema.NullOr(Schema.String),
+    image: Schema.NullOr(Schema.String),
+  }),
+  tracks: Schema.Array(CatalogTrack),
 });
 
 /**
@@ -106,5 +129,13 @@ export const playback = GroupSpec.make("playback")
       name: "artist",
       args: Schema.Struct({ artistId: Schema.String }),
       returns: Schema.NullOr(CatalogArtistDetail),
+    }),
+  )
+  .addFunction(
+    // A catalog album + its tracks, for the catalog album page.
+    FunctionSpec.publicAction({
+      name: "album",
+      args: Schema.Struct({ albumId: Schema.String }),
+      returns: Schema.NullOr(CatalogAlbumDetail),
     }),
   );
