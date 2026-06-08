@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 
+import type { PlaybackConnection } from "@/features/playback";
 import type { SpotifyTrack } from "@/features/spotify-client/types";
 import type {
   RoomDetails,
@@ -17,6 +18,12 @@ export interface RoomsContextValue {
   rooms: RoomSummary[];
   roomsLoading: boolean;
   syncState: RoomSyncState;
+  /** Connect/authorize the active playback provider (Apple Music). */
+  playbackConnection: PlaybackConnection;
+  /** Playback is ready but blocked by the browser pending a user gesture. */
+  autoplayBlocked: boolean;
+  /** Start playback from a user gesture (clears `autoplayBlocked`). */
+  startPlayback: () => void;
   createRoom: (input: {
     name: string;
     description?: string;

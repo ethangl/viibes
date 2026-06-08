@@ -164,6 +164,12 @@ function createRoomsValue(overrides: Partial<RoomsValue> = {}): RoomsValue {
     followRoom: vi.fn().mockResolvedValue(undefined),
     moveQueueItem: vi.fn().mockResolvedValue(undefined),
     openRoom: vi.fn().mockResolvedValue(undefined),
+    playbackConnection: {
+      status: "idle",
+      connect: vi.fn().mockResolvedValue(undefined),
+    },
+    autoplayBlocked: false,
+    startPlayback: vi.fn(),
     removeQueueItem: vi.fn().mockResolvedValue(undefined),
     repairSync: vi.fn(),
     resolvedPlayback: null,

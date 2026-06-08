@@ -1,12 +1,24 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PlaybackProvider, PlaybackProviderId } from "@/features/playback";
 import type { RoomDetails } from "../client/room-types";
 import { resolveRoomPlayback } from "./room-sync";
 import { useRoomSyncController } from "./use-room-sync-controller";
 
 const syncTrack = vi.fn<(track: { id: string }, offsetMs?: number) => Promise<void>>();
 const togglePlay = vi.fn<() => Promise<void>>();
+const resolveTrack =
+  vi.fn<
+    (args: {
+      queueItemId: string;
+      provider: PlaybackProviderId;
+    }) => Promise<string | null>
+  >();
+
+vi.mock("convex/react", () => ({
+  useAction: () => resolveTrack,
+}));
 
 let mockSnapshot:
   | {
@@ -17,13 +29,16 @@ let mockSnapshot:
     }
   | null = null;
 
-vi.mock("@/features/playback", () => ({
-  usePlaybackProvider: () => ({
+function makeProvider(id: PlaybackProviderId): PlaybackProvider {
+  return {
+    id,
     syncTrack,
     togglePlay,
-    snapshot: mockSnapshot,
-  }),
-}));
+    get snapshot() {
+      return mockSnapshot;
+    },
+  };
+}
 
 function createRoomDetails(): RoomDetails {
   return {
@@ -127,6 +142,8 @@ describe("useRoomSyncController", () => {
     syncTrack.mockResolvedValue(undefined);
     togglePlay.mockReset();
     togglePlay.mockResolvedValue(undefined);
+    resolveTrack.mockReset();
+    resolveTrack.mockResolvedValue(null);
     mockSnapshot = {
       durationMs: 180_000,
       paused: false,
@@ -170,6 +187,8 @@ describe("useRoomSyncController", () => {
       resolvedPlayback: ReturnType<typeof resolveRoomPlayback>;
     };
 
+    const spotifyProvider = makeProvider("spotify");
+
     const { result, rerender } = renderHook<
       ReturnType<typeof useRoomSyncController>,
       HookProps
@@ -179,6 +198,8 @@ describe("useRoomSyncController", () => {
           activeRoom,
           roomId: activeRoom?.room._id ?? null,
           resolvedPlayback,
+          provider: spotifyProvider,
+          ready: true,
         }),
       {
         initialProps: {
@@ -246,5 +267,132 @@ describe("useRoomSyncController", () => {
         30_000,
       );
     });
+
+    // Spotify resolves by identity — no server round-trip.
+    expect(resolveTrack).not.toHaveBeenCalled();
+  });
+
+  it("plays the server-resolved Apple catalog id, not the origin trackId", async () => {
+    resolveTrack.mockResolvedValue("apple-song-1");
+    const room = createRoomDetails();
+
+    renderHook(() =>
+      useRoomSyncController({
+        activeRoom: room,
+        roomId: room.room._id,
+        resolvedPlayback: resolveRoomPlayback(room, 40_000),
+        provider: makeProvider("apple"),
+        ready: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(resolveTrack).toHaveBeenCalledWith({
+        queueItemId: "queue-1",
+        provider: "apple",
+      });
+    });
+
+    await waitFor(() => {
+      expect(syncTrack).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "apple-song-1" }),
+        30_000,
+      );
+    });
+  });
+
+  it("waits for the provider to be ready, then plays once it connects", async () => {
+    resolveTrack.mockResolvedValue("apple-song-1");
+    const room = createRoomDetails();
+    const appleProvider = makeProvider("apple");
+
+    const { rerender } = renderHook(
+      ({ ready }: { ready: boolean }) =>
+        useRoomSyncController({
+          activeRoom: room,
+          roomId: room.room._id,
+          resolvedPlayback: resolveRoomPlayback(room, 40_000),
+          provider: appleProvider,
+          ready,
+        }),
+      { initialProps: { ready: false } },
+    );
+
+    // Resolution still happens up front, but nothing plays until connected.
+    await waitFor(() => {
+      expect(resolveTrack).toHaveBeenCalled();
+    });
+    expect(syncTrack).not.toHaveBeenCalled();
+
+    // Connecting Apple Music flips `ready` true — playback fires.
+    rerender({ ready: true });
+
+    await waitFor(() => {
+      expect(syncTrack).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "apple-song-1" }),
+        30_000,
+      );
+    });
+  });
+
+  it("flags autoplay-blocked when play() is refused, then resumes from a gesture", async () => {
+    // First play() is refused by the autoplay policy (no interaction yet).
+    syncTrack.mockRejectedValueOnce(
+      new DOMException(
+        "play() failed because the user didn't interact with the document first",
+        "NotAllowedError",
+      ),
+    );
+    const room = createRoomDetails();
+
+    const { result } = renderHook(() =>
+      useRoomSyncController({
+        activeRoom: room,
+        roomId: room.room._id,
+        resolvedPlayback: resolveRoomPlayback(room, 40_000),
+        provider: makeProvider("spotify"),
+        ready: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.autoplayBlocked).toBe(true);
+    });
+
+    // The gesture-driven retry succeeds and clears the flag.
+    await act(async () => {
+      result.current.startPlayback();
+    });
+
+    await waitFor(() => {
+      expect(result.current.autoplayBlocked).toBe(false);
+    });
+    expect(syncTrack).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "track-1" }),
+      30_000,
+    );
+  });
+
+  it("marks the track unavailable and skips playback when Apple has no match", async () => {
+    resolveTrack.mockResolvedValue(null);
+    const room = createRoomDetails();
+
+    const { result } = renderHook(() =>
+      useRoomSyncController({
+        activeRoom: room,
+        roomId: room.room._id,
+        resolvedPlayback: resolveRoomPlayback(room, 40_000),
+        provider: makeProvider("apple"),
+        ready: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.syncState).toMatchObject({
+        code: "track_unavailable",
+      });
+    });
+
+    expect(syncTrack).not.toHaveBeenCalled();
   });
 });

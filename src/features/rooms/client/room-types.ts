@@ -132,7 +132,8 @@ export type RoomSyncCode =
   | "queue_empty"
   | "paused"
   | "syncing"
-  | "synced";
+  | "synced"
+  | "track_unavailable";
 
 export interface RoomSyncState {
   code: RoomSyncCode;

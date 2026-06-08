@@ -60,6 +60,7 @@ export interface MusicKitSearchResult {
 export function useMusicKit() {
   const fetchToken = useAction(api.playback.appleDeveloperToken);
   const musicRef = useRef<MusicKitInstance | null>(null);
+  const configurePromiseRef = useRef<Promise<void> | null>(null);
   const [status, setStatus] = useState<MusicKitStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<PlaybackSnapshot | null>(null);
@@ -79,33 +80,53 @@ export function useMusicKit() {
     });
   }, []);
 
-  const configure = useCallback(async () => {
+  const configure = useCallback(async (): Promise<void> => {
     if (musicRef.current) return;
-    setStatus("loading");
-    setError(null);
-    try {
-      const token = await fetchToken({});
-      if (!token) {
+    // Reuse an in-flight configure so a connect() click during the mount-time
+    // configure awaits the same run rather than racing ahead to authorize().
+    if (configurePromiseRef.current) return configurePromiseRef.current;
+
+    const run = (async () => {
+      setStatus("loading");
+      setError(null);
+      try {
+        const token = await fetchToken({});
+        if (!token) {
+          setStatus("error");
+          setError("Apple Music isn't configured (no developer token).");
+          return;
+        }
+        const MusicKit = await loadMusicKitScript();
+        const music = await MusicKit.configure({
+          developerToken: token,
+          app: { name: "viibes", build: "1.0.0" },
+        });
+        musicRef.current = music;
+        for (const event of SNAPSHOT_EVENTS) {
+          music.addEventListener(event, recomputeSnapshot);
+        }
+        recomputeSnapshot();
+        // `configure` restores the persisted Music User Token, so a listener
+        // who authorized on a previous visit comes back already authorized — no
+        // second connect. A fresh listener lands on "ready" until they connect.
+        setStatus(music.isAuthorized ? "authorized" : "ready");
+      } catch (cause) {
         setStatus("error");
-        setError("Apple Music isn't configured (no developer token).");
-        return;
+        setError(cause instanceof Error ? cause.message : "MusicKit error.");
+      } finally {
+        configurePromiseRef.current = null;
       }
-      const MusicKit = await loadMusicKitScript();
-      const music = await MusicKit.configure({
-        developerToken: token,
-        app: { name: "viibes", build: "1.0.0" },
-      });
-      musicRef.current = music;
-      for (const event of SNAPSHOT_EVENTS) {
-        music.addEventListener(event, recomputeSnapshot);
-      }
-      recomputeSnapshot();
-      setStatus(music.isAuthorized ? "authorized" : "ready");
-    } catch (cause) {
-      setStatus("error");
-      setError(cause instanceof Error ? cause.message : "MusicKit error.");
-    }
+    })();
+    configurePromiseRef.current = run;
+    return run;
   }, [fetchToken, recomputeSnapshot]);
+
+  // Configure once on mount to restore any prior authorization (the Music User
+  // Token lives in localStorage). Silent — `authorize()` (the popup) still
+  // needs a user gesture and only runs via `connect()`.
+  useEffect(() => {
+    void configure();
+  }, [configure]);
 
   const authorize = useCallback(async () => {
     const music = musicRef.current;

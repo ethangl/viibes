@@ -19,6 +19,22 @@ export interface PlaybackSnapshot {
   durationMs: number;
 }
 
+/** Connection state for a provider that requires an explicit user gesture to
+ * become playable (Apple Music's MusicKit `authorize()`). Spotify needs none. */
+export type PlaybackConnectionStatus =
+  | "idle"
+  | "loading"
+  | "ready" // configured, not yet authorized
+  | "authorized"
+  | "error";
+
+/** The surface the room UI uses to prompt "Connect Apple Music". */
+export interface PlaybackConnection {
+  status: PlaybackConnectionStatus;
+  /** Configure + authorize the provider. Must run from a user gesture. */
+  connect: () => Promise<void>;
+}
+
 /**
  * The slice of a music provider that room sync drives. Deliberately narrow: it
  * covers "play this track at this offset" and "toggle play/pause" plus a

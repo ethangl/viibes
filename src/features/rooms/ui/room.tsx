@@ -2,6 +2,7 @@ import { MainContent } from "@/components/main";
 import { Section } from "@/components/section";
 import { Spinner } from "@/components/ui/spinner";
 import { useRoomDetails, type RoomId } from "@/features/rooms";
+import { AppleConnectBanner } from "./apple-connect-banner";
 import { RoomQueue } from "./room-queue";
 
 export function Room({ roomId }: { roomId: RoomId }) {
@@ -27,6 +28,7 @@ export function Room({ roomId }: { roomId: RoomId }) {
 
   return (
     <MainContent>
+      <AppleConnectBanner />
       <Section>
         <RoomQueue resolvedPlayback={resolvedPlayback} room={data} />
       </Section>

@@ -1,5 +1,7 @@
 export type {
   CanonicalTrack,
+  PlaybackConnection,
+  PlaybackConnectionStatus,
   PlaybackProvider,
   PlaybackProviderId,
   PlaybackSnapshot,

@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 
+import { usePlaybackProvider } from "@/features/playback";
 import { useRoomDetails, useRoomList } from "../client/room-hooks";
 import { type RoomDetails, type RoomSummary } from "../client/room-types";
 import { RoomsContext, type RoomsContextValue } from "./rooms-context";
@@ -53,10 +54,16 @@ function useRoomRuntimeState(): RoomRuntimeState {
 export function RoomsProvider({ children }: { children: ReactNode }) {
   const runtime = useRoomRuntimeState();
   useRoomPresence(runtime.activeRoom?.room._id ?? null);
+  // One provider instance, shared between room sync (drives playback) and the
+  // player UI (surfaces the Connect Apple Music prompt) — two instances would
+  // mean two MusicKit configures.
+  const playback = usePlaybackProvider();
   const sync = useRoomSyncController({
     activeRoom: runtime.activeRoom,
     roomId: runtime.roomId,
     resolvedPlayback: runtime.resolvedPlayback,
+    provider: playback,
+    ready: playback.status === "authorized",
   });
   const actions = useRoomActions({
     roomId: runtime.roomId,
@@ -76,6 +83,12 @@ export function RoomsProvider({ children }: { children: ReactNode }) {
       followRoom: actions.followRoom,
       moveQueueItem: actions.moveQueueItem,
       openRoom: actions.openRoom,
+      playbackConnection: {
+        status: playback.status,
+        connect: playback.connect,
+      },
+      autoplayBlocked: sync.autoplayBlocked,
+      startPlayback: sync.startPlayback,
       removeQueueItem: actions.removeQueueItem,
       repairSync: sync.repairSync,
       resolvedPlayback: runtime.resolvedPlayback,
@@ -97,13 +110,17 @@ export function RoomsProvider({ children }: { children: ReactNode }) {
       actions.removeQueueItem,
       actions.skipRoom,
       actions.unfollowRoom,
+      playback.status,
+      playback.connect,
       runtime.activeRoom,
       runtime.activeRoomLoading,
       runtime.roomId,
       runtime.resolvedPlayback,
       runtime.rooms,
       runtime.roomsLoading,
+      sync.autoplayBlocked,
       sync.repairSync,
+      sync.startPlayback,
       sync.syncState,
     ],
   );

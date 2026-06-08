@@ -116,9 +116,12 @@ export function getVisibleRoomQueue(
 export function getRoomSyncState({
   hasActiveRoom,
   resolvedPlayback,
+  trackUnavailable = false,
 }: {
   hasActiveRoom: boolean;
   resolvedPlayback: ResolvedRoomPlayback | null;
+  /** The current track can't be resolved for the active provider (no match). */
+  trackUnavailable?: boolean;
 }): RoomSyncState {
   if (!hasActiveRoom || !resolvedPlayback) {
     return {
@@ -140,6 +143,14 @@ export function getRoomSyncState({
     return {
       code: "paused",
       label: "Playback stopped",
+      driftMs: null,
+    };
+  }
+
+  if (trackUnavailable) {
+    return {
+      code: "track_unavailable",
+      label: "This track isn’t on Apple Music",
       driftMs: null,
     };
   }
