@@ -1,5 +1,6 @@
 import { RefreshCwIcon } from "lucide-react";
 
+import { AppLink } from "@/components/app-link";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { SidebarContent } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,15 @@ export function SpotifyActivity() {
     <>
       <SpotifyHeader title="Spotify" />
       <SidebarContent>
+        {/* Interim entry to the Apple Music library (parity build); folds into
+            the Apple home dashboard when the shell rework lands. */}
+        <div className="px-4 pt-2">
+          <Button
+            size="xs"
+            nativeButton={false}
+            render={<AppLink href="/apple-playlists">Apple Music Playlists →</AppLink>}
+          />
+        </div>
         <Playlists
           title="Your Playlists"
           playlists={playlists}

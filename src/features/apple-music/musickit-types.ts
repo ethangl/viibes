@@ -49,10 +49,10 @@ export interface MusicKitInstance {
   addEventListener(name: string, callback: (event: unknown) => void): void;
   removeEventListener(name: string, callback: (event: unknown) => void): void;
   api: {
-    music(
+    music<T = MusicKitSearchResponse>(
       path: string,
       queryParameters?: Record<string, unknown>,
-    ): Promise<MusicKitSearchResponse>;
+    ): Promise<T>;
   };
 }
 
