@@ -7,7 +7,6 @@ import { RoomPlaybackStates } from "./tables/RoomPlaybackStates";
 import { RoomPresenceSessions } from "./tables/RoomPresenceSessions";
 import { RoomQueueItems } from "./tables/RoomQueueItems";
 import { Rooms } from "./tables/Rooms";
-import { SpotifyAuthCooldowns } from "./tables/SpotifyAuthCooldowns";
 import { Users } from "./tables/Users";
 
 /**
@@ -23,5 +22,4 @@ export default DatabaseSchema.make()
   .addTable(RoomQueueItems)
   .addTable(RoomPlaybackStates)
   .addTable(RoomActivityEvents)
-  .addTable(RoomPresenceSessions)
-  .addTable(SpotifyAuthCooldowns);
+  .addTable(RoomPresenceSessions);

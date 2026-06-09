@@ -1,11 +1,11 @@
 import { FC } from "react";
 
 import { cn } from "@/lib/utils";
+import { usePlayerExpanded } from "./player-expanded-context";
 import { StandardPlayer } from "./standard-player";
-import { useNowPlaying } from "./use-now-playing";
 
 export const Player: FC = () => {
-  const { expanded, setExpanded } = useNowPlaying();
+  const { expanded, setExpanded } = usePlayerExpanded();
   return (
     <>
       <div

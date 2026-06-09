@@ -10,58 +10,9 @@ import type {
   RoomQueueItem,
   RoomQueueItemId,
 } from "@/features/rooms/client/room-types";
-import type { Track } from "@/features/spotify-client/types";
-import {
-  WebPlayerActionsContext,
-  WebPlayerStateContext,
-} from "./use-web-player";
 import { useNowPlaying } from "./use-now-playing";
 
-type WebPlayerActions = NonNullable<
-  ContextType<typeof WebPlayerActionsContext>
->;
-type WebPlayerState = NonNullable<ContextType<typeof WebPlayerStateContext>>;
 type RoomsValue = NonNullable<ContextType<typeof RoomsContext>>;
-
-function createActions(overrides: Partial<WebPlayerActions> = {}): WebPlayerActions {
-  return {
-    isAuthenticated: true,
-    nextTrack: vi.fn().mockResolvedValue(undefined),
-    playTrack: vi.fn().mockResolvedValue(undefined),
-    playTracks: vi.fn().mockResolvedValue(undefined),
-    prevTrack: vi.fn().mockResolvedValue(undefined),
-    setExpanded: vi.fn(),
-    setVolume: vi.fn().mockResolvedValue(undefined),
-    spotify: {
-      init: vi.fn(),
-      play: vi.fn().mockResolvedValue({ ok: true, status: 200 }),
-      setRepeat: vi.fn().mockResolvedValue(undefined),
-      waitForReady: vi.fn().mockResolvedValue(null),
-    },
-    syncTrack: vi.fn().mockResolvedValue(undefined),
-    togglePlay: vi.fn().mockResolvedValue(undefined),
-    toggleShuffle: vi.fn(),
-    ...overrides,
-  };
-}
-
-function createState(overrides: Partial<WebPlayerState> = {}): WebPlayerState {
-  return {
-    currentTrack: null,
-    durationMs: 0,
-    expanded: false,
-    hasQueue: false,
-    palette: ["#000", "#222", "#444"],
-    paused: false,
-    progressMs: 0,
-    queue: [],
-    queueIndex: 0,
-    sdkState: null,
-    shuffled: false,
-    volume: 50,
-    ...overrides,
-  };
-}
 
 function createRoomsValue(overrides: Partial<RoomsValue> = {}): RoomsValue {
   return {
@@ -181,65 +132,26 @@ function createResolvedRoomPlayback(
   };
 }
 
-function createWrapper({
-  actions = createActions(),
-  rooms = null,
-  state = createState(),
-}: {
-  actions?: WebPlayerActions;
-  rooms?: RoomsValue | null;
-  state?: WebPlayerState;
-}) {
+function createWrapper(rooms: RoomsValue | null = null) {
   return function Wrapper({ children }: PropsWithChildren) {
     return (
-      <WebPlayerActionsContext.Provider value={actions}>
-        <WebPlayerStateContext.Provider value={state}>
-          <RoomsContext.Provider value={rooms}>{children}</RoomsContext.Provider>
-        </WebPlayerStateContext.Provider>
-      </WebPlayerActionsContext.Provider>
+      <RoomsContext.Provider value={rooms}>{children}</RoomsContext.Provider>
     );
   };
 }
 
 describe("useNowPlaying", () => {
-  it("uses SDK-backed web player data when no room is active", () => {
-    const currentTrack: Track = {
-      albumImage: "https://example.com/track.jpg",
-      artist: "Artist A",
-      durationMs: 170000,
-      id: "track-a",
-      name: "Track A",
-    };
-
+  it("returns idle state when no room is active", () => {
     const { result } = renderHook(() => useNowPlaying(), {
-      wrapper: createWrapper({
-        state: createState({
-          currentTrack,
-          durationMs: 160000,
-          hasQueue: true,
-          progressMs: 5000,
-          sdkState: {
-            duration: 180000,
-            paused: false,
-            position: 12000,
-            trackId: currentTrack.id,
-          },
-        }),
-      }),
+      wrapper: createWrapper(null),
     });
 
     expect(result.current.isRoomMode).toBe(false);
     expect(result.current.roomPlayback).toBeNull();
-    expect(result.current.displayName).toBe("Track A");
-    expect(result.current.displayArtist).toBe("Artist A");
-    expect(result.current.compactDisplayArtist).toBe("Artist A");
-    expect(result.current.displayImage).toBe("https://example.com/track.jpg");
-    expect(result.current.displayProgress).toBe(12000);
-    expect(result.current.displayDuration).toBe(180000);
-    expect(result.current.displayTrackId).toBe("track-a");
-    expect(result.current.hasQueue).toBe(true);
-    expect(result.current.isPlaying).toBe(true);
-    expect(result.current.pct).toBeCloseTo(6.67, 2);
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.displayName).toBe("");
+    expect(result.current.displayImage).toBeNull();
+    expect(result.current.pct).toBe(0);
   });
 
   it("prefers active-room track metadata and shared room actions", async () => {
@@ -259,8 +171,8 @@ describe("useNowPlaying", () => {
     });
 
     const { result } = renderHook(() => useNowPlaying(), {
-      wrapper: createWrapper({
-        rooms: createRoomsValue({
+      wrapper: createWrapper(
+        createRoomsValue({
           activeRoom: roomDetails,
           closeRoom,
           resolvedPlayback: createResolvedRoomPlayback({
@@ -269,11 +181,7 @@ describe("useNowPlaying", () => {
           }),
           skipRoom,
         }),
-        state: createState({
-          currentTrack: null,
-          hasQueue: false,
-        }),
-      }),
+      ),
     });
 
     expect(result.current.isRoomMode).toBe(true);
@@ -286,7 +194,6 @@ describe("useNowPlaying", () => {
     expect(result.current.displayProgress).toBe(90000);
     expect(result.current.displayDuration).toBe(210000);
     expect(result.current.displayTrackId).toBe("room-track");
-    expect(result.current.hasQueue).toBe(true);
     expect(result.current.isPlaying).toBe(true);
     expect(result.current.roomPlayback?.canSkip).toBe(true);
 
@@ -305,8 +212,8 @@ describe("useNowPlaying", () => {
     const repairSync = vi.fn();
 
     const { result } = renderHook(() => useNowPlaying(), {
-      wrapper: createWrapper({
-        rooms: createRoomsValue({
+      wrapper: createWrapper(
+        createRoomsValue({
           activeRoom: createRoomDetails({
             currentQueueItem,
           }),
@@ -317,7 +224,7 @@ describe("useNowPlaying", () => {
             paused: true,
           }),
         }),
-      }),
+      ),
     });
 
     act(() => {

@@ -9,7 +9,6 @@ import {
 } from "@/components/section";
 import type { SpotifyTrack } from "@/features/spotify-client/types";
 import { EnqueueTrackButton } from "./enqueue-track-button";
-import { PlayTrackButton } from "./play-track-button";
 import { TrackCell } from "./track-cell";
 
 export type TracksProps = {
@@ -50,7 +49,6 @@ export const Tracks: FC<TracksProps> = ({
             track={track}
           >
             <EnqueueTrackButton track={track} />
-            <PlayTrackButton track={track} />
           </TrackCell>
         ))}
         {paginate}

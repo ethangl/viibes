@@ -1,11 +1,12 @@
 import { toRoomTrack, useOptionalRooms } from "@/features/rooms";
 
-import { useWebPlayer } from "./use-web-player";
+// Static decorative palette for the player swirl. Playback is room-synced via
+// Apple MusicKit, which exposes no track color palette; derive from room art
+// later if desired.
+const DEFAULT_PALETTE = ["#1f2430", "#2a2433", "#24302f"] as const;
 
 export function useNowPlaying() {
-  const player = useWebPlayer();
   const rooms = useOptionalRooms();
-  const { currentTrack, sdkState, progressMs, durationMs } = player;
   const activeRoom = rooms?.activeRoom ?? null;
   const resolvedPlayback = rooms?.resolvedPlayback ?? null;
   const roomTrack = toRoomTrack(resolvedPlayback?.currentQueueItem ?? null);
@@ -15,37 +16,18 @@ export function useNowPlaying() {
   const hasRoomTrack = !!resolvedPlayback?.currentQueueItem;
   const canControlPlayback = !!activeRoom?.playback.canControlPlayback;
 
-  const trackId = currentTrack?.id ?? null;
-  const sdkActive = !!(sdkState && trackId && sdkState.trackId === trackId);
-  const playerDisplayProgress = sdkActive ? sdkState.position : progressMs;
-  const playerDisplayDuration = sdkActive
-    ? sdkState!.duration
-    : currentTrack?.durationMs ?? durationMs;
-  const displayProgress = isRoomMode
-    ? (resolvedPlayback?.currentOffsetMs ?? 0)
-    : playerDisplayProgress;
-  const displayDuration = isRoomMode
-    ? (roomTrack?.durationMs ?? 0)
-    : playerDisplayDuration;
+  const displayProgress = resolvedPlayback?.currentOffsetMs ?? 0;
+  const displayDuration = roomTrack?.durationMs ?? 0;
   const pct =
     displayDuration > 0 ? (displayProgress / displayDuration) * 100 : 0;
-  const displayName = isRoomMode
-    ? (roomTrack?.name ?? roomName)
-    : currentTrack?.name ?? "";
-  const displayArtist = isRoomMode
-    ? roomTrack
-      ? `${roomName} • ${roomTrack.artist}`
-      : roomName
-    : currentTrack?.artist ?? "";
-  const compactDisplayArtist = isRoomMode ? roomName : displayArtist;
-  const displayImage = isRoomMode
-    ? (roomTrack?.albumImage ?? null)
-    : currentTrack?.albumImage ?? null;
-  const displayTrackId = isRoomMode
-    ? (roomTrack?.id ?? "")
-    : currentTrack?.id ?? "";
-  const hasQueue = activeRoom ? activeRoom.queue.length > 1 : player.hasQueue;
-  const isPlaying = isRoomMode ? hasRoomTrack : !!currentTrack;
+  const displayName = roomTrack?.name ?? roomName;
+  const displayArtist = roomTrack
+    ? `${roomName} • ${roomTrack.artist}`
+    : roomName;
+  const compactDisplayArtist = roomName;
+  const displayImage = roomTrack?.albumImage ?? null;
+  const displayTrackId = roomTrack?.id ?? "";
+  const isPlaying = hasRoomTrack;
 
   const toggleRoomListening = () => {
     if (!activeRoom) {
@@ -91,19 +73,18 @@ export function useNowPlaying() {
     : null;
 
   return {
-    ...player,
     activeRoom,
     compactDisplayArtist,
     displayProgress,
     displayDuration,
     pct,
-    hasQueue,
     isPlaying,
     isRoomMode,
     displayName,
     displayArtist,
     displayImage,
     displayTrackId,
+    palette: DEFAULT_PALETTE,
     roomPlayback,
   };
 }

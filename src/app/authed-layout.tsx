@@ -12,6 +12,7 @@ import { Rooms } from "@/features/rooms/ui/rooms";
 import { RoomsHeader } from "@/features/rooms/ui/rooms-header";
 import { MiniPlayer } from "@/features/spotify-player/mini-player";
 import { Player } from "@/features/spotify-player/player";
+import { PlayerExpandedProvider } from "@/features/spotify-player/player-expanded-context";
 import { PlayerWrapper } from "@/features/spotify-player/player-wrapper2";
 import { useNowPlaying } from "@/features/spotify-player/use-now-playing";
 
@@ -19,7 +20,8 @@ export const AuthedLayout: FC = () => {
   const { isPlaying } = useNowPlaying();
   const { roomId } = useRoomPageState();
   return (
-    <div className="absolute gap-3 grid grid-cols-[auto_1fr_auto] inset-0 items-stretch p-3 overflow-x-auto scrollbar-none">
+    <PlayerExpandedProvider>
+      <div className="absolute gap-3 grid grid-cols-[auto_1fr_auto] inset-0 items-stretch p-3 overflow-x-auto scrollbar-none">
       <Sidebar>
         <SidebarWrapper style={{ "--section-color": "var(--color-red-400)" }}>
           <Outlet />
@@ -43,8 +45,9 @@ export const AuthedLayout: FC = () => {
           <MiniPlayer />
         </PlayerWrapper>
       </Main>
-      {roomId ? <Chat roomId={roomId} /> : <RoomCreateForm />}
-      <Player />
-    </div>
+        {roomId ? <Chat roomId={roomId} /> : <RoomCreateForm />}
+        <Player />
+      </div>
+    </PlayerExpandedProvider>
   );
 };

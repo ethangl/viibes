@@ -9,7 +9,6 @@ import { SpotifySearch } from "./spotify-search";
 
 type RoomsValue = NonNullable<React.ContextType<typeof RoomsContext>>;
 
-const mockPlayTrack = vi.fn();
 const mockScrollTo = vi.fn();
 
 // The active search handler for the current render; each test supplies its own
@@ -29,40 +28,6 @@ class MockResizeObserver {
 
 vi.mock("convex/react", () => ({
   useAction: () => mockSearchAction,
-}));
-
-vi.mock("@/features/spotify-player", () => ({
-  useWebPlayerActions: () => ({
-    playTrack: (...args: unknown[]) => mockPlayTrack(...args),
-  }),
-  useWebPlayer: () => ({
-    playTrack: (...args: unknown[]) => mockPlayTrack(...args),
-    currentTrack: null,
-    sdkState: null,
-    paused: true,
-    progressMs: 0,
-    durationMs: 0,
-    volume: 1,
-    expanded: false,
-    palette: [],
-    queue: [],
-    queueIndex: 0,
-    shuffled: false,
-    hasQueue: false,
-    isAuthenticated: true,
-    nextTrack: vi.fn(),
-    prevTrack: vi.fn(),
-    togglePlay: vi.fn(),
-    toggleShuffle: vi.fn(),
-    setVolume: vi.fn(),
-    setExpanded: vi.fn(),
-    spotify: {
-      init: vi.fn(),
-      waitForReady: vi.fn(),
-      play: vi.fn(),
-      setRepeat: vi.fn(),
-    },
-  }),
 }));
 
 vi.mock("@/hooks/use-debounce", () => ({
@@ -291,7 +256,6 @@ describe("search", () => {
     fireEvent.click(getCommandItem("Panopticon"));
 
     expect(enqueueTrack).toHaveBeenCalledWith(track, "room-1");
-    expect(mockPlayTrack).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(

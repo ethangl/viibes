@@ -9,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ClearSpotifyCacheButton } from "@/features/spotify-shell/clear-spotify-cache-button";
 import { useAuthenticatedSession } from "@/hooks/use-authenticated-session";
 
 export const UserMenu: FC = () => {
@@ -37,7 +36,6 @@ export const UserMenu: FC = () => {
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <ClearSpotifyCacheButton />
         {isSignedIn ? (
           <DropdownMenuItem onClick={() => signOut()}>
             <LogOutIcon /> Sign Out

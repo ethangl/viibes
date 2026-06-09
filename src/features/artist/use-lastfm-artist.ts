@@ -1,7 +1,8 @@
+import { api } from "@api";
+import { useAction } from "convex/react";
 import { useCallback } from "react";
 
 import { useStableAction } from "@/hooks/use-stable-action";
-import { getLastFmArtist } from "./lastfm-client";
 import type { LastFmArtistMatch } from "./types";
 
 export function useLastFmArtist({
@@ -12,12 +13,16 @@ export function useLastFmArtist({
   musicBrainzId: string | null;
 }) {
   const normalizedArtistName = artistName.trim();
+  const artistDetails = useAction(api.lastfm.artistDetails);
 
   const { data } = useStableAction<LastFmArtistMatch>({
     enabled: normalizedArtistName !== "",
     load: useCallback(async () => {
-      return await getLastFmArtist(normalizedArtistName, musicBrainzId);
-    }, [musicBrainzId, normalizedArtistName]),
+      return await artistDetails({
+        artistName: normalizedArtistName,
+        musicBrainzId,
+      });
+    }, [artistDetails, musicBrainzId, normalizedArtistName]),
   });
 
   return data;

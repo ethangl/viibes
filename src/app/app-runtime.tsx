@@ -3,7 +3,6 @@ import {
   convexSignOut as signOut,
   useConvexSession,
 } from "@/lib/convex-auth-client";
-import { useSpotifyRuntimeCapabilities } from "@/features/spotify-client/use-spotify-runtime-capabilities";
 import {
   createContext,
   type ReactNode,
@@ -17,7 +16,6 @@ import {
 
 type SessionState = ReturnType<typeof useConvexSession>;
 export type SessionData = SessionState["data"];
-export type SpotifyConnection = "unknown" | "connected" | "disconnected";
 
 const SESSION_SETTLE_DELAY_MS = 400;
 
@@ -27,12 +25,9 @@ export interface AppAuthRuntime {
   signIn: typeof signIn;
   /** Clears the session and resets to a fresh guest (full reload to `/`). */
   signOut: () => Promise<void>;
-  getSpotifyAccessToken: () => Promise<string | null>;
 }
 
 export interface AppCapabilities {
-  spotifyConnection: SpotifyConnection;
-  canControlPlayback: boolean;
   /** Real (non-guest) account — gates account-only actions like creating a room. */
   canCreateRoom: boolean;
 }
@@ -90,15 +85,9 @@ function useRuntimeValues() {
     });
   }, [isSessionPending, effectiveSession]);
 
-  const sessionUserId = effectiveSession?.user.id ?? null;
   const isAnonymous =
     (effectiveSession?.user as { isAnonymous?: boolean } | undefined)
       ?.isAnonymous === true;
-  const {
-    canControlPlayback,
-    getSpotifyAccessToken,
-    spotifyConnection,
-  } = useSpotifyRuntimeCapabilities(sessionUserId);
 
   // Sign-out resets to a fresh guest. The Convex auth token clears immediately
   // while authed room queries are still mounted, so a full navigation to `/`
@@ -117,18 +106,15 @@ function useRuntimeValues() {
       isPending: isSessionPending,
       signIn,
       signOut: signOutToGuest,
-      getSpotifyAccessToken,
     }),
-    [getSpotifyAccessToken, isSessionPending, effectiveSession, signOutToGuest],
+    [isSessionPending, effectiveSession, signOutToGuest],
   );
 
   const capabilities = useMemo(
     () => ({
-      spotifyConnection,
-      canControlPlayback,
       canCreateRoom: !!effectiveSession && !isAnonymous,
     }),
-    [canControlPlayback, spotifyConnection, effectiveSession, isAnonymous],
+    [effectiveSession, isAnonymous],
   );
 
   return { auth, capabilities };

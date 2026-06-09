@@ -2,20 +2,13 @@ import { ChevronsUpIcon } from "lucide-react";
 
 import { AlbumArt } from "@/components/album-art";
 import { StopButton } from "@/components/stop-button";
-import { NextTrackButton } from "./next-track-button";
+import { usePlayerExpanded } from "./player-expanded-context";
 import { SkipForwardButton } from "./skip-forward-button";
-import { TogglePlayButton } from "./toggle-play-button";
 import { useNowPlaying } from "./use-now-playing";
 
 export function MiniPlayer() {
-  const {
-    displayArtist,
-    displayImage,
-    displayName,
-    hasQueue,
-    isRoomMode,
-    setExpanded,
-  } = useNowPlaying();
+  const { displayArtist, displayImage, displayName } = useNowPlaying();
+  const { setExpanded } = usePlayerExpanded();
 
   return (
     <div className="backdrop-blur-xl backdrop-invert-10 backdrop-contrast-120 backdrop-saturate-120 bg-linear-to-b from-black/33 to-black/11 gap-4 grid grid-cols-[1fr_auto] items-center m-1 overflow-hidden p-1 rounded-2xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.222),0_1px_1.5px_rgba(255,255,255,0.222)]">
@@ -40,17 +33,8 @@ export function MiniPlayer() {
         </div>
       </button>
       <nav className="flex flex-none items-center transition-opacity z-0">
-        {isRoomMode ? (
-          <>
-            <StopButton />
-            <SkipForwardButton />
-          </>
-        ) : (
-          <>
-            <TogglePlayButton />
-            {hasQueue ? <NextTrackButton /> : null}
-          </>
-        )}
+        <StopButton />
+        <SkipForwardButton />
       </nav>
     </div>
   );

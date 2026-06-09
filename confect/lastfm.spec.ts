@@ -1,7 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import { Schema } from "effect";
 
-import { mutArray } from "./spotify/schemas";
+import { mutArray } from "./schemas";
 
 /** Effect-Schema port of `lastFmArtistMatchValidator` (component result). */
 const LastFmArtistMatch = Schema.Struct({

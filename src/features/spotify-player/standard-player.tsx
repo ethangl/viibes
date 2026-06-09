@@ -1,24 +1,12 @@
-import {
-  ChevronsDownIcon,
-  PauseIcon,
-  PlayIcon,
-  Volume2Icon,
-  VolumeIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronsDownIcon, PauseIcon, PlayIcon } from "lucide-react";
 
 import { AlbumArt } from "@/components/album-art";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { RoomPlayerPanel } from "@/features/rooms/ui/room-player-panel";
-import { NextTrackButton } from "./next-track-button";
+import { usePlayerExpanded } from "./player-expanded-context";
 import { PlayerWrapper } from "./player-wrapper";
-import { PrevTrackButton } from "./prev-track-button";
 import { RepairSyncButton } from "./repair-sync-button";
-import { RepeatButton } from "./repeat-button";
-import { ShuffleButton } from "./shuffle-button";
 import { SkipForwardButton } from "./skip-forward-button";
-import { TogglePlayButton } from "./toggle-play-button";
 import { useNowPlaying } from "./use-now-playing";
 
 function formatTime(ms: number) {
@@ -31,20 +19,7 @@ function formatTime(ms: number) {
 export function StandardPlayer() {
   const nowPlaying = useNowPlaying();
   const roomPlayback = nowPlaying.roomPlayback;
-  const expanded = nowPlaying.expanded;
-  const volume = nowPlaying.volume;
-  const setExpanded = nowPlaying.setExpanded;
-  const setVolume = nowPlaying.setVolume;
-  const [draftVolume, setDraftVolume] = useState(volume);
-
-  useEffect(() => {
-    setDraftVolume(volume);
-  }, [volume]);
-
-  const commitVolume = async (nextVolume: number) => {
-    if (nextVolume === volume) return;
-    await setVolume(nextVolume);
-  };
+  const { expanded, setExpanded } = usePlayerExpanded();
 
   return (
     <PlayerWrapper toggled={expanded}>
@@ -76,60 +51,23 @@ export function StandardPlayer() {
         </header>
 
         <nav className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center mb-8 mix-blend-plus-darker dark:mix-blend-plus-lighter">
-          <div className="flex flex-auto gap-3 items-center justify-end">
-            {!nowPlaying.isRoomMode && nowPlaying.hasQueue && (
-              <>
-                <ShuffleButton />
-                <PrevTrackButton />
-              </>
+          <div className="flex flex-auto gap-3 items-center justify-end" />
+          <Button
+            variant="overlay"
+            size="icon-2xl"
+            disabled={!roomPlayback?.canToggleListening}
+            onClick={() => roomPlayback?.toggleListening()}
+          >
+            {roomPlayback?.paused ? (
+              <PlayIcon fill="currentColor" strokeWidth={0} />
+            ) : (
+              <PauseIcon fill="currentColor" strokeWidth={0} />
             )}
-          </div>
-          {nowPlaying.isRoomMode ? (
-            <Button
-              variant="overlay"
-              size="icon-2xl"
-              disabled={!roomPlayback?.canToggleListening}
-              onClick={() => roomPlayback?.toggleListening()}
-            >
-              {roomPlayback?.paused ? (
-                <PlayIcon fill="currentColor" strokeWidth={0} />
-              ) : (
-                <PauseIcon fill="currentColor" strokeWidth={0} />
-              )}
-            </Button>
-          ) : (
-            <TogglePlayButton size="icon-2xl" />
-          )}
+          </Button>
           <div className="flex flex-auto gap-3 items-center justify-start">
-            {nowPlaying.isRoomMode ? (
-              <SkipForwardButton />
-            ) : nowPlaying.hasQueue ? (
-              <>
-                <NextTrackButton />
-                <RepeatButton />
-              </>
-            ) : null}
+            <SkipForwardButton />
           </div>
         </nav>
-
-        <div className="flex gap-2 items-center mb-2 -mx-3">
-          <Button variant="overlay" size="icon">
-            <VolumeIcon className="translate-x-1" />
-          </Button>
-          <Slider
-            min={0}
-            max={100}
-            value={draftVolume}
-            onValueChange={(value) => setDraftVolume(Number(value))}
-            onValueCommitted={(value) => {
-              void commitVolume(Number(value));
-            }}
-            className="flex-auto "
-          />
-          <Button variant="overlay" size="icon">
-            <Volume2Icon className="translate-x-px" />
-          </Button>
-        </div>
 
         <footer className="grid grid-cols-[auto_1fr] gap-1 items-center -mx-3">
           <Button

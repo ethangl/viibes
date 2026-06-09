@@ -6,7 +6,6 @@ import { createAuthClient } from "better-auth/react";
 import { anonymousClient } from "better-auth/client/plugins";
 
 import { getConvexSiteUrl } from "@/lib/convex-env";
-const SPOTIFY_AUTH_COOLDOWN_ENDPOINT = "/api/spotify-auth/cooldown";
 
 export const convexAuthClient = createAuthClient({
   baseURL: getConvexSiteUrl("Convex Better Auth"),
@@ -51,37 +50,6 @@ export async function convexLinkSocialAccount({
   }
 
   return result;
-}
-
-export async function fetchSpotifyAuthCooldown() {
-  const response = await fetch(
-    new URL(
-      SPOTIFY_AUTH_COOLDOWN_ENDPOINT,
-      getConvexSiteUrl("Spotify auth cooldown"),
-    ).toString(),
-  );
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as {
-    cooldownUntil?: number | null;
-    retryAfterSeconds?: number | null;
-  };
-
-  return {
-    cooldownUntil:
-      typeof payload.cooldownUntil === "number" &&
-      Number.isFinite(payload.cooldownUntil)
-        ? payload.cooldownUntil
-        : null,
-    retryAfterSeconds:
-      typeof payload.retryAfterSeconds === "number" &&
-      Number.isFinite(payload.retryAfterSeconds)
-        ? payload.retryAfterSeconds
-        : null,
-  };
 }
 
 export const {

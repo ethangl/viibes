@@ -1,7 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { RoomsProvider } from "@/features/rooms";
-import { WebPlayerProvider } from "@/features/spotify-player";
 
 import { SearchProvider } from "@/features/spotify-search/search-provider";
 import { SpotifySearch } from "@/features/spotify-search/spotify-search";
@@ -38,13 +37,11 @@ export function RequireAuthenticatedSession() {
   // legacy `/home` route, and the Spotify reconnect nag is gone — Spotify is
   // now opt-in legacy, not a requirement.
   return (
-    <WebPlayerProvider>
-      <RoomsProvider>
-        <SearchProvider>
-          <Outlet />
-          <SpotifySearch />
-        </SearchProvider>
-      </RoomsProvider>
-    </WebPlayerProvider>
+    <RoomsProvider>
+      <SearchProvider>
+        <Outlet />
+        <SpotifySearch />
+      </SearchProvider>
+    </RoomsProvider>
   );
 }

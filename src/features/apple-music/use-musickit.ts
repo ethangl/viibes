@@ -53,9 +53,8 @@ export interface MusicKitSearchResult {
 /**
  * MusicKit JS v3 integration: load + configure (developer token from the
  * server), authorize the listener (subscriber required for full playback), and
- * drive playback while exposing a normalized {@link PlaybackSnapshot}. This is
- * the Apple analog of `use-spotify-sdk`; `useApplePlaybackProvider` will sit on
- * top of it in 3-3.
+ * drive playback while exposing a normalized {@link PlaybackSnapshot}.
+ * `useApplePlaybackProvider` sits on top of it as the room playback provider.
  */
 export function useMusicKit() {
   const fetchToken = useAction(api.playback.appleDeveloperToken);
