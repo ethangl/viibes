@@ -14,10 +14,12 @@ import { ArtistResolveRoute, HomeRoute, NotFoundRoute } from "@/routes";
 import { AppShell } from "./app-shell";
 import { AuthedLayout } from "./authed-layout";
 import { RequireAuthenticatedSession } from "./require-authenticated-session";
+import { RouteErrorBoundary } from "./route-error-boundary";
 
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <HomeRoute /> },
       {

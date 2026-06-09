@@ -7,6 +7,7 @@ import { useSpotifyRuntimeCapabilities } from "@/features/spotify-client/use-spo
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -24,13 +25,16 @@ export interface AppAuthRuntime {
   session: SessionData;
   isPending: boolean;
   signIn: typeof signIn;
-  signOut: typeof signOut;
+  /** Clears the session and resets to a fresh guest (full reload to `/`). */
+  signOut: () => Promise<void>;
   getSpotifyAccessToken: () => Promise<string | null>;
 }
 
 export interface AppCapabilities {
   spotifyConnection: SpotifyConnection;
   canControlPlayback: boolean;
+  /** Real (non-guest) account — gates account-only actions like creating a room. */
+  canCreateRoom: boolean;
 }
 
 const AppAuthContext = createContext<AppAuthRuntime | null>(null);
@@ -87,29 +91,44 @@ function useRuntimeValues() {
   }, [isSessionPending, effectiveSession]);
 
   const sessionUserId = effectiveSession?.user.id ?? null;
+  const isAnonymous =
+    (effectiveSession?.user as { isAnonymous?: boolean } | undefined)
+      ?.isAnonymous === true;
   const {
     canControlPlayback,
     getSpotifyAccessToken,
     spotifyConnection,
   } = useSpotifyRuntimeCapabilities(sessionUserId);
 
+  // Sign-out resets to a fresh guest. The Convex auth token clears immediately
+  // while authed room queries are still mounted, so a full navigation to `/`
+  // tears them down cleanly (the reload then auto-creates an anonymous session);
+  // staying in-place would briefly run `rooms:list` un-authed and crash.
+  const signOutToGuest = useCallback(async () => {
+    await signOut();
+    if (typeof window !== "undefined") {
+      window.location.assign("/");
+    }
+  }, []);
+
   const auth = useMemo(
     () => ({
       session: effectiveSession,
       isPending: isSessionPending,
       signIn,
-      signOut,
+      signOut: signOutToGuest,
       getSpotifyAccessToken,
     }),
-    [getSpotifyAccessToken, isSessionPending, effectiveSession],
+    [getSpotifyAccessToken, isSessionPending, effectiveSession, signOutToGuest],
   );
 
   const capabilities = useMemo(
     () => ({
       spotifyConnection,
       canControlPlayback,
+      canCreateRoom: !!effectiveSession && !isAnonymous,
     }),
-    [canControlPlayback, spotifyConnection],
+    [canControlPlayback, spotifyConnection, effectiveSession, isAnonymous],
   );
 
   return { auth, capabilities };

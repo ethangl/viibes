@@ -48,7 +48,12 @@ type UserDoc = Schema.Schema.Type<typeof Users.Doc>;
 
 const roomPresence = new Presence<string, string>(components.presence);
 
-export type RoomAuth = { tokenIdentifier: string; userId: string };
+export type RoomAuth = {
+  tokenIdentifier: string;
+  userId: string;
+  /** True for guest (anonymous) sessions — gated out of account-only actions. */
+  isAnonymous: boolean;
+};
 export type VisibleRoomContext = {
   auth: RoomAuth;
   room: RoomDoc;
@@ -260,7 +265,9 @@ export const requireRoomAuth = (
       typeof user.userId === "string" && user.userId.length > 0
         ? user.userId
         : String(user._id);
-    return { tokenIdentifier: identity.tokenIdentifier, userId };
+    const isAnonymous =
+      (user as { isAnonymous?: boolean }).isAnonymous === true;
+    return { tokenIdentifier: identity.tokenIdentifier, userId, isAnonymous };
   });
 
 // ── Read helpers (infra errors → defects) ────────────────────────────────────
@@ -1038,6 +1045,11 @@ export const createRoom = (
 ) =>
   Effect.gen(function* () {
     const auth = yield* requireRoomAuth(ctx);
+    // Creating a room requires a real account — guests (anonymous sessions) can
+    // join + listen but never own data, so the account upgrade stays clean.
+    if (auth.isAnonymous) {
+      return yield* Effect.fail(new Unauthorized());
+    }
     const name = args.name.trim();
     if (!name) {
       return yield* Effect.fail(

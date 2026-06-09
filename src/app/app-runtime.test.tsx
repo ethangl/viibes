@@ -80,9 +80,35 @@ describe("AppRuntimeProvider", () => {
     expect(result.current.auth.isPending).toBe(false);
     expect(result.current.capabilities.spotifyConnection).toBe("disconnected");
     expect(result.current.capabilities.canControlPlayback).toBe(false);
+    expect(result.current.capabilities.canCreateRoom).toBe(false);
     expect(mockAuthFetch).not.toHaveBeenCalled();
     expect(mockGetAccessToken).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it("disallows room creation for an anonymous guest session", () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { id: "guest-1", isAnonymous: true } },
+      isPending: false,
+    });
+    mockAuthFetch.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useRuntimeProbe(), { wrapper });
+
+    expect(result.current.capabilities.canCreateRoom).toBe(false);
+    expect(mockSignInAnonymous).not.toHaveBeenCalled();
+  });
+
+  it("allows room creation for a real (non-anonymous) account", () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { id: "user-1" } },
+      isPending: false,
+    });
+    mockAuthFetch.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useRuntimeProbe(), { wrapper });
+
+    expect(result.current.capabilities.canCreateRoom).toBe(true);
   });
 
   it("silently creates an anonymous guest session once the session settles to none", async () => {

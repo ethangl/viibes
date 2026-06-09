@@ -1,7 +1,7 @@
-import { LogOutIcon } from "lucide-react";
+import { LogInIcon, LogOutIcon } from "lucide-react";
 import { FC } from "react";
 
-import { useAppAuth } from "@/app/app-runtime";
+import { useAppAuth, useAppCapabilities } from "@/app/app-runtime";
 import { Avatar } from "@/components/avatar";
 import {
   DropdownMenu,
@@ -14,7 +14,18 @@ import { useAuthenticatedSession } from "@/hooks/use-authenticated-session";
 
 export const UserMenu: FC = () => {
   const session = useAuthenticatedSession();
-  const { signOut } = useAppAuth();
+  const { signOut, signIn } = useAppAuth();
+  // canCreateRoom is true only for a real (non-guest) account, so it doubles as
+  // "is signed in" here.
+  const { canCreateRoom: isSignedIn } = useAppCapabilities();
+
+  const startGoogleAuth = () =>
+    void signIn.social({
+      provider: "google",
+      callbackURL: "/",
+      errorCallbackURL: "/?authProvider=google",
+    });
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
@@ -27,9 +38,15 @@ export const UserMenu: FC = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <ClearSpotifyCacheButton />
-        <DropdownMenuItem onClick={() => signOut()}>
-          <LogOutIcon /> Sign Out
-        </DropdownMenuItem>
+        {isSignedIn ? (
+          <DropdownMenuItem onClick={() => signOut()}>
+            <LogOutIcon /> Sign Out
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={startGoogleAuth}>
+            <LogInIcon /> Sign in with Google
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

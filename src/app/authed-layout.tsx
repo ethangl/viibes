@@ -21,9 +21,7 @@ export const AuthedLayout: FC = () => {
   return (
     <div className="absolute gap-3 grid grid-cols-[auto_1fr_auto] inset-0 items-stretch p-3 overflow-x-auto scrollbar-none">
       <Sidebar>
-        <SidebarWrapper
-          style={{ "--section-color": "var(--color-emerald-400)" }}
-        >
+        <SidebarWrapper style={{ "--section-color": "var(--color-red-400)" }}>
           <Outlet />
         </SidebarWrapper>
       </Sidebar>
